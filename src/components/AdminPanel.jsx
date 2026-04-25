@@ -1,12 +1,15 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, LogOut, Plus, Trash2, Bot, AlertTriangle, Save } from 'lucide-react';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { Lock, LogOut, Plus, Trash2, Bot, AlertTriangle, Save, HardDrive } from 'lucide-react';
 import { AppContext } from '../context/AppContext';
 import { defaultData } from '../data/defaultData';
-import { appId, storage, useFirebase } from '../lib/firebase';
+import { uploadToB2, deleteFromB2, listB2Files } from '../lib/b2storage';
 import { GlassCard } from './ui/GlassCard';
 import { ThemeButton } from './ui/ThemeButton';
+import { StorageManagement } from './StorageManagement';
+import { StudentManagement } from './StudentManagement';
+import { AdminNavbar } from './AdminNavbar';
 
 function getPortalCategory(item) {
   const raw = String(item?.examType || item?.classLevel || '').trim().toUpperCase();
@@ -49,6 +52,7 @@ function getMediaAccept(tab, key, item) {
 }
 
 export function AdminPanel() {
+  const navigate = useNavigate();
   const [auth, setAuth] = useState(sessionStorage.getItem('adminAuth') === 'true');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
@@ -78,6 +82,7 @@ export function AdminPanel() {
   const handleLogout = () => {
     setAuth(false);
     sessionStorage.removeItem('adminAuth');
+    navigate('/');
   };
 
   const saveToWebsite = () => {
@@ -130,41 +135,32 @@ export function AdminPanel() {
   const handleMediaUpload = async (tab, id, field, file) => {
     if (!file) return;
 
-    // For student portal PDFs, upload to Firebase Storage so links work across devices.
-    if (tab === 'studentPortal' && field === 'documentUrl' && useFirebase && storage) {
-      try {
-        setSaveStatus('Uploading PDF...');
-        const safeName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
-        const storagePath = `artifacts/${appId}/public/studentPortal/${id}/${safeName}`;
-        const fileRef = ref(storage, storagePath);
-        await new Promise((resolve, reject) => {
-          const task = uploadBytesResumable(fileRef, file, { contentType: file.type || 'application/pdf' });
-          task.on(
-            'state_changed',
-            (snapshot) => {
-              const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-              setSaveStatus(`Uploading PDF... ${pct}%`);
-            },
-            reject,
-            resolve,
-          );
-        });
-        const publicUrl = await getDownloadURL(fileRef);
-        updateArrayItem(tab, id, field, publicUrl);
-        updateArrayItem(tab, id, 'fileType', 'PDF');
-        setSaveStatus('PDF uploaded. Click Save to Website to publish.');
-        setTimeout(() => setSaveStatus(''), 2500);
-        return;
-      } catch (error) {
-        console.error('Student PDF upload failed:', error);
-        setSaveStatus('PDF upload failed. Check Firebase Storage rules or internet, then retry.');
-        setTimeout(() => setSaveStatus(''), 4000);
-        return;
-      }
-    }
+    try {
+      // Determine folder based on tab and field
+      let folder = '';
+      if (tab === 'studentPortal') folder = 'documents/';
+      else if (tab === 'slides') folder = 'slides/';
+      else if (tab === 'gallery') folder = 'gallery/';
+      else if (tab === 'results') folder = 'results/';
+      else folder = 'uploads/';
 
-    const dataUrl = await readFileAsDataUrl(file);
-    updateArrayItem(tab, id, field, dataUrl);
+      setSaveStatus(`Uploading ${file.name}...`);
+
+      // Upload to B2
+      const uploadResult = await uploadToB2(file, folder);
+
+      updateArrayItem(tab, id, field, uploadResult.publicUrl);
+      if (tab === 'studentPortal') {
+        updateArrayItem(tab, id, 'fileType', file.type.includes('pdf') ? 'PDF' : 'Document');
+      }
+
+      setSaveStatus(`✓ ${file.name} uploaded successfully!`);
+      setTimeout(() => setSaveStatus(''), 2500);
+    } catch (error) {
+      console.error('B2 upload failed:', error);
+      setSaveStatus(`✗ Upload error: ${error.message}`);
+      setTimeout(() => setSaveStatus(''), 3000);
+    }
   };
 
   const deleteArrayItem = (key, id) => {
@@ -218,6 +214,7 @@ export function AdminPanel() {
     'studentPortal',
     'studentPortalStudents',
     'settings',
+    'storage',
   ];
   const currentItems = getTabData(activeTab);
   const studentPortalItems = getTabData('studentPortal');
@@ -241,35 +238,10 @@ export function AdminPanel() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FA] pt-20 md:flex-row">
-      <div className="flex h-[calc(100vh-80px)] w-full flex-col overflow-y-auto bg-[#0A0F2C] md:fixed md:w-64">
-        <div className="border-b border-white/10 p-6">
-          <h2 className="font-serif text-xl font-bold text-white">Admin Dashboard</h2>
-        </div>
-        <div className="flex-1 py-4">
-          {tabs.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setActiveTab(t)}
-              className={`w-full px-6 py-3 text-left transition-colors ${activeTab === t ? 'border-r-4 border-[#D90429] bg-[#D90429]/20 text-[#D90429]' : 'text-slate-300 hover:text-white'}`}
-            >
-              {t === 'studentPortal'
-                ? 'Manage Student Portal'
-                : t === 'studentPortalStudents'
-                  ? 'Manage Students'
-                  : `Manage ${t}`}
-            </button>
-          ))}
-        </div>
-        <div className="border-t border-white/10 p-4">
-          <button type="button" onClick={handleLogout} className="flex w-full items-center gap-2 px-2 py-2 text-red-400 hover:text-red-300">
-            <LogOut className="h-4 w-4" /> Logout
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 p-4 md:ml-64 md:p-8">
+    <>
+      <AdminNavbar activeTab={activeTab} onTabChange={setActiveTab} onLogout={handleLogout} />
+      <div className="min-h-screen bg-[#F8F9FA] pt-40">
+        <div className="mx-auto max-w-7xl px-4 p-4 md:p-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-serif text-3xl font-bold capitalize text-[#0A0F2C]">
             {activeTab === 'studentPortal'
@@ -359,6 +331,8 @@ export function AdminPanel() {
               </button>
             </GlassCard>
           </div>
+        ) : activeTab === 'storage' ? (
+          <StorageManagement saveStatus={saveStatus} setSaveStatus={setSaveStatus} />
         ) : activeTab === 'studentPortal' ? (
           <div className="space-y-6">
             <div className="flex flex-wrap justify-center gap-3">
@@ -468,6 +442,15 @@ export function AdminPanel() {
               )}
             </GlassCard>
           </div>
+        ) : activeTab === 'studentPortalStudents' ? (
+          <StudentManagement
+            students={getTabData('studentPortalStudents')}
+            onAddStudent={(student) => addArrayItem('studentPortalStudents', student)}
+            onUpdateStudent={(id, field, value) => updateArrayItem('studentPortalStudents', id, field, value)}
+            onDeleteStudent={(id) => deleteArrayItem('studentPortalStudents', id)}
+            saveStatus={saveStatus}
+            setSaveStatus={setSaveStatus}
+          />
         ) : (
           <div className="space-y-6">
             {currentItems.map((item) => (
@@ -526,7 +509,8 @@ export function AdminPanel() {
             ))}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

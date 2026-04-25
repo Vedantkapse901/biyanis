@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { HashRouter as Router, Routes, Route } from 'react-router-dom'
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { Atom, Heart, Phone } from 'lucide-react'
 import { AppContext } from './context/AppContext'
 import { supabase } from './lib/supabase'
@@ -31,6 +31,98 @@ const defaultData = {
   studentPortalStudents: [],
 }
 
+function AppContent({ appData, updateAppData, isSupabaseConnected, loadAppData, reviewModalOpen, setReviewModalOpen }) {
+  const location = useLocation()
+  const isAdminPage = location.pathname === '/admin'
+
+  return (
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Connection Status Indicator */}
+      {!isSupabaseConnected && (
+        <div className="bg-yellow-50 px-4 py-2 text-center text-sm text-yellow-800 border-b border-yellow-200">
+          ⚠️ Using fallback data. Supabase connection not available.{' '}
+          <button
+            onClick={loadAppData}
+            className="underline font-semibold hover:text-yellow-900"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!isAdminPage && <Navbar />}
+      <AnimatedRoutes />
+      {!isAdminPage && <GlobalWhatsApp />}
+      {!isAdminPage && <DoubtChatbot />}
+      <SmartReviewModal isOpen={reviewModalOpen} onClose={() => setReviewModalOpen(false)} />
+
+      {!isAdminPage && (
+        <footer className="border-t border-slate-200 bg-[#0A0F2C] py-12">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {/* About */}
+              <div>
+                <h3 className="text-lg font-bold text-white">Biyanis</h3>
+                <p className="mt-2 text-sm text-slate-400">
+                  {appData.settings.tagline}
+                </p>
+              </div>
+
+              {/* Quick Links */}
+              <div>
+                <h4 className="text-sm font-semibold text-white">Quick Links</h4>
+                <ul className="mt-4 space-y-2">
+                  <li>
+                    <a href="#/courses" className="text-sm text-slate-400 hover:text-white">
+                      Courses
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#/gallery" className="text-sm text-slate-400 hover:text-white">
+                      Gallery
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#/about" className="text-sm text-slate-400 hover:text-white">
+                      About Us
+                    </a>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Contact */}
+              <div>
+                <h4 className="text-sm font-semibold text-white">Contact</h4>
+                <div className="mt-4 flex gap-4">
+                  <a
+                    href={`tel:${appData.settings.whatsapp}`}
+                    className="flex items-center gap-2 text-sm text-slate-400 hover:text-white"
+                  >
+                    <Phone className="h-4 w-4" />
+                    WhatsApp
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Credits */}
+            <div className="mt-8 border-t border-slate-700 pt-8">
+              <div className="flex items-center justify-center gap-2 text-center text-sm text-slate-400">
+                <span>{appData.settings.madeBy}</span>
+                <Heart className="h-4 w-4 animate-pulse text-[#D90429]" />
+              </div>
+              <p className="mt-4 text-center text-xs text-slate-500">
+                © 2020-{new Date().getFullYear()} Biyanis. All rights reserved. Powered by{' '}
+                <span className="text-[#D90429] font-semibold">Supabase</span>
+              </p>
+            </div>
+          </div>
+        </footer>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   const [appData, setAppData] = useState(defaultData)
   const [loading, setLoading] = useState(true)
@@ -41,6 +133,24 @@ export default function App() {
   // Load all data from Supabase on mount
   useEffect(() => {
     loadAppData()
+
+    // Set up real-time listener for slides
+    const slidesSubscription = supabase
+      .channel('slides-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'slides' },
+        () => {
+          console.log('Slides updated, refetching...')
+          loadAppData()
+        }
+      )
+      .subscribe()
+
+    // Cleanup subscription on unmount
+    return () => {
+      slidesSubscription.unsubscribe()
+    }
   }, [])
 
   async function loadAppData() {
@@ -150,91 +260,15 @@ export default function App() {
   return (
     <AppContext.Provider value={{ data: appData, setData: updateAppData }}>
       <Router>
-        <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-          {/* Connection Status Indicator */}
-          {!isSupabaseConnected && (
-            <div className="bg-yellow-50 px-4 py-2 text-center text-sm text-yellow-800 border-b border-yellow-200">
-              ⚠️ Using fallback data. Supabase connection not available.{' '}
-              <button
-                onClick={loadAppData}
-                className="underline font-semibold hover:text-yellow-900"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          <Navbar />
-          <AnimatedRoutes />
-          <GlobalWhatsApp />
-          <DoubtChatbot />
-          <SmartReviewModal isOpen={reviewModalOpen} onClose={() => setReviewModalOpen(false)} />
-
-          {/* Footer */}
-          <footer className="border-t border-slate-200 bg-[#0A0F2C] py-12">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                {/* About */}
-                <div>
-                  <h3 className="text-lg font-bold text-white">Biyanis</h3>
-                  <p className="mt-2 text-sm text-slate-400">
-                    {appData.settings.tagline}
-                  </p>
-                </div>
-
-                {/* Quick Links */}
-                <div>
-                  <h4 className="text-sm font-semibold text-white">Quick Links</h4>
-                  <ul className="mt-4 space-y-2">
-                    <li>
-                      <a href="#/courses" className="text-sm text-slate-400 hover:text-white">
-                        Courses
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#/gallery" className="text-sm text-slate-400 hover:text-white">
-                        Gallery
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#/about" className="text-sm text-slate-400 hover:text-white">
-                        About Us
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Contact */}
-                <div>
-                  <h4 className="text-sm font-semibold text-white">Contact</h4>
-                  <div className="mt-4 flex gap-4">
-                    <a
-                      href={`tel:${appData.settings.whatsapp}`}
-                      className="flex items-center gap-2 text-sm text-slate-400 hover:text-white"
-                    >
-                      <Phone className="h-4 w-4" />
-                      WhatsApp
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              {/* Credits */}
-              <div className="mt-8 border-t border-slate-700 pt-8">
-                <div className="flex items-center justify-center gap-2 text-center text-sm text-slate-400">
-                  <span>{appData.settings.madeBy}</span>
-                  <Heart className="h-4 w-4 animate-pulse text-[#D90429]" />
-                </div>
-                <p className="mt-4 text-center text-xs text-slate-500">
-                  © 2020-{new Date().getFullYear()} Biyanis. All rights reserved. Powered by{' '}
-                  <span className="text-[#D90429] font-semibold">Supabase</span>
-                </p>
-              </div>
-            </div>
-          </footer>
-        </div>
+        <AppContent
+          appData={appData}
+          updateAppData={updateAppData}
+          isSupabaseConnected={isSupabaseConnected}
+          loadAppData={loadAppData}
+          reviewModalOpen={reviewModalOpen}
+          setReviewModalOpen={setReviewModalOpen}
+        />
       </Router>
     </AppContext.Provider>
   )
 }
-

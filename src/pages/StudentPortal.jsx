@@ -86,7 +86,7 @@ export function StudentPortal() {
                 sessionStorage.removeItem('studentUser');
                 navigate('/student-login', { replace: true });
               }}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-bold text-[#0A0F2C] transition-colors hover:border-[#D90429] hover:text-[#D90429]"
+              className="relative z-[51] rounded-lg border border-slate-300 bg-white px-4 py-2 font-bold text-[#0A0F2C] transition-colors hover:border-[#D90429] hover:text-[#D90429]"
             >
               Logout
             </button>

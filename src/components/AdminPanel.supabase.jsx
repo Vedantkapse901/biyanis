@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Lock, LogOut, Plus, Trash2, Bot, AlertTriangle, Save, Edit2, X, Upload, Eye, EyeOff } from 'lucide-react'
 import { useSlides, useCourses, useResults, useBranches, useTestimonials, useFreeDownloads, useSettings, useSupabaseMutation, useSupabaseStorage, useAdminAuth } from '../hooks/useSupabaseData'
 import { GlassCard } from './ui/GlassCard'
 import { ThemeButton } from './ui/ThemeButton'
+import { AdminNavbar } from './AdminNavbar'
+import { SlideForm } from './SlideForm'
+import { uploadToB2 } from '../lib/b2storage'
 import { supabase } from '../lib/supabase'
 
 function readFileAsDataUrl(file) {
@@ -16,6 +20,7 @@ function readFileAsDataUrl(file) {
 }
 
 export function AdminPanel() {
+  const navigate = useNavigate()
   const [auth, setAuth] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,6 +28,8 @@ export function AdminPanel() {
   const { loginWithSupabase, logout, getSession, loading: authLoading } = useAdminAuth()
   const [activeTab, setActiveTab] = useState('slides')
   const [saveStatus, setSaveStatus] = useState('')
+  const [showSlideForm, setShowSlideForm] = useState(false)
+  const [addingSlide, setAddingSlide] = useState(false)
 
   // Check session on mount
   useEffect(() => {
@@ -97,25 +104,10 @@ export function AdminPanel() {
     sessionStorage.removeItem('adminFullName')
     setEmail('')
     setPassword('')
+    navigate('/')
   }
 
   // ==================== SLIDES ====================
-  const handleAddSlide = async () => {
-    const newSlide = {
-      type: 'image',
-      url: '',
-      headline: 'New Slide',
-      subheadline: '',
-      cta_text: 'Click Here',
-      display_order: draftSlides.length,
-    }
-    const result = await insert('slides', newSlide)
-    if (result.success) {
-      setSaveStatus('Slide added!')
-      setTimeout(() => refetchSlides(), 500)
-    }
-  }
-
   const handleUpdateSlide = async (id, updates) => {
     const result = await update('slides', id, updates)
     if (result.success) {
@@ -135,13 +127,10 @@ export function AdminPanel() {
     }
   }
 
-  const handleUploadSlideMedia = async (file, slideId) => {
-    const result = await uploadFile('media', `slides/${slideId}-${Date.now()}`, file)
-    if (result.success) {
-      await handleUpdateSlide(slideId, { url: result.url })
-      setSaveStatus('Media uploaded!')
-    }
-  }
+  // Slides now use B2 uploads via SlideForm modal - old Supabase upload removed
+  // const handleUploadSlideMedia = async (file, slideId) => {
+  //   Use SlideForm modal to upload new slides
+  // }
 
   // ==================== COURSES ====================
   const handleAddCourse = async () => {
@@ -323,6 +312,53 @@ export function AdminPanel() {
     }
   }
 
+  // Handle adding slide with file upload to B2
+  const handleAddSlideWithFile = async (formData) => {
+    try {
+      setAddingSlide(true)
+      setSaveStatus('Uploading to B2 storage...')
+
+      console.log('Form data received:', formData)
+
+      // Upload file to B2
+      const b2Result = await uploadToB2(formData.file, 'slides/')
+
+      if (!b2Result.publicUrl) {
+        throw new Error('Failed to get public URL from B2')
+      }
+
+      // Insert slide into Supabase
+      const newSlide = {
+        type: formData.type,
+        url: b2Result.publicUrl,
+        cta: formData.cta,
+        cta_url: formData.ctaUrl,
+        display_order: draftSlides.length,
+      }
+
+      console.log('Slide object to save:', newSlide)
+
+      const result = await insert('slides', newSlide)
+      if (result.success) {
+        setSaveStatus('✅ Slide added successfully!')
+        setShowSlideForm(false)
+        setTimeout(() => refetchSlides(), 500)
+      } else {
+        setSaveStatus('❌ Failed to save slide to database')
+      }
+    } catch (error) {
+      console.error('Error adding slide:', error)
+      setSaveStatus(`❌ Error: ${error.message}`)
+    } finally {
+      setAddingSlide(false)
+      setTimeout(() => setSaveStatus(''), 3000)
+    }
+  }
+
+  const handleAddSlide = () => {
+    setShowSlideForm(true)
+  }
+
   if (!auth) {
     return (
       <section className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-16">
@@ -398,64 +434,31 @@ export function AdminPanel() {
   }
 
   return (
-    <section className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-slate-900">Admin Panel</h1>
-            <p className="text-slate-600">
-              Logged in as <strong>{email}</strong>
-              {sessionStorage.getItem('adminUid') && (
-                <span> • UID: {sessionStorage.getItem('adminUid')?.substring(0, 8)}...</span>
-              )}
-              • Supabase Auth • Manage your website content
-            </p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700"
-          >
-            <LogOut className="h-5 w-5" />
-            Logout
-          </button>
-        </div>
+    <>
+      <AdminNavbar activeTab={activeTab} onTabChange={setActiveTab} onLogout={handleLogout} />
 
-        {/* Status Message */}
-        {saveStatus && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mb-4 rounded-lg bg-green-100 px-4 py-3 text-green-800 font-semibold"
-          >
-            ✅ {saveStatus}
-          </motion.div>
-        )}
+      {/* Slide Form Modal */}
+      {showSlideForm && (
+        <SlideForm
+          onClose={() => setShowSlideForm(false)}
+          onSubmit={handleAddSlideWithFile}
+          isLoading={addingSlide}
+        />
+      )}
 
-        {/* Tabs */}
-        <div className="mb-8 flex gap-2 overflow-x-auto pb-4">
-          {[
-            { id: 'slides', label: 'Slides' },
-            { id: 'courses', label: 'Courses' },
-            { id: 'results', label: 'Results' },
-            { id: 'branches', label: 'Branches' },
-            { id: 'testimonials', label: 'Testimonials' },
-            { id: 'downloads', label: 'Downloads' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`whitespace-nowrap rounded-lg px-4 py-2 font-semibold transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-[#D90429] text-white'
-                  : 'bg-white text-slate-700 hover:bg-slate-200'
-              }`}
+      <section className="min-h-screen bg-[#F8F9FA] pt-40">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          {/* Status Message */}
+          {saveStatus && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mb-4 rounded-lg bg-green-100 px-4 py-3 text-green-800 font-semibold"
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              ✅ {saveStatus}
+            </motion.div>
+          )}
 
         {/* Slides Tab */}
         {activeTab === 'slides' && (
@@ -546,18 +549,17 @@ export function AdminPanel() {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold mb-2">Media Upload</label>
+                          <label className="block text-sm font-semibold mb-2">Media URL</label>
                           <input
-                            type="file"
-                            accept={slide.type === 'video' ? 'video/*' : 'image/*'}
-                            onChange={(e) => {
-                              if (e.target.files?.[0]) {
-                                handleUploadSlideMedia(e.target.files[0], slide.id)
-                              }
-                            }}
-                            disabled={uploadLoading}
-                            className="w-full"
+                            type="url"
+                            value={slide.url || ''}
+                            onChange={(e) =>
+                              handleUpdateSlide(slide.id, { ...slide, url: e.target.value })
+                            }
+                            placeholder="https://... (B2 public URL)"
+                            className="w-full rounded border border-slate-300 px-3 py-2"
                           />
+                          <p className="text-xs text-slate-500 mt-1">Use SlideForm to upload new media to B2</p>
                         </div>
 
                         <button
@@ -1154,7 +1156,8 @@ export function AdminPanel() {
             </div>
           </div>
         )}
-      </div>
-    </section>
+        </div>
+      </section>
+    </>
   )
 }
