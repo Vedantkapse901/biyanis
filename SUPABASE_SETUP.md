@@ -27,6 +27,8 @@
 4. Make it **Public** (toggle on)
 5. Click "Create bucket"
 
+6. In **SQL Editor**, run `database/storage_policies.sql` so logged-in admins can upload from the browser (EYE10-style, no custom upload server).
+
 **Storage Structure**:
 ```
 media/

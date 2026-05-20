@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { GlassCard } from './ui/GlassCard';
+import { ResolvedImage } from './ResolvedImage';
 import { dedupeResultsById } from '../lib/dedupeResults';
+
+const SCROLL_SPEED = 0.65;
 
 function HallOfFameCard({ result }) {
   const displayRank = result.achievement || result.rank || 'Top Rank';
@@ -10,7 +13,7 @@ function HallOfFameCard({ result }) {
     <GlassCard className="flex min-w-[320px] max-w-[360px] flex-shrink-0 items-center gap-4 border-l-4 border-l-[#D90429] px-6 py-4">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100">
         {result.photo ? (
-          <img src={result.photo} alt={result.name} className="h-full w-full object-cover" />
+          <ResolvedImage src={result.photo} alt={result.name} className="h-full w-full object-cover" />
         ) : (
           <div className="font-serif text-2xl font-black text-[#0A0F2C]">
             {result.name?.charAt(0) || 'S'}
@@ -31,66 +34,63 @@ function HallOfFameCard({ result }) {
   );
 }
 
-/** Auto-scrolls a single copy of each student (no duplicate tiles). */
-export function HallOfFameCarousel({ results = [] }) {
+/**
+ * @param {boolean} [alwaysRoll] — continuous scroll: student 1 → 2 → … → last → 1 → …
+ */
+export function HallOfFameCarousel({ results = [], alwaysRoll = false }) {
   const unique = dedupeResultsById(results);
   const reduceMotion = useReducedMotion();
   const containerRef = useRef(null);
   const trackRef = useRef(null);
-  const [canScroll, setCanScroll] = useState(false);
+
+  const trackItems = useMemo(() => {
+    if (unique.length === 0) return [];
+    if (!alwaysRoll || reduceMotion) return unique;
+    return [...unique, ...unique];
+  }, [unique, alwaysRoll, reduceMotion]);
+
+  const continuous =
+    alwaysRoll && !reduceMotion && unique.length > 0 && trackItems.length > unique.length;
 
   useEffect(() => {
-    const container = containerRef.current;
-    const track = trackRef.current;
-    if (!container || !track) return;
-
-    const measure = () => {
-      setCanScroll(track.scrollWidth > container.clientWidth + 8);
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(container);
-    ro.observe(track);
-    return () => ro.disconnect();
-  }, [unique]);
-
-  useEffect(() => {
-    if (reduceMotion || !canScroll) return;
+    if (!continuous) return;
 
     const track = trackRef.current;
-    const container = containerRef.current;
-    if (!track || !container) return;
+    if (!track) return;
 
     let offset = 0;
     let rafId = 0;
-    const speed = 0.75;
 
     const tick = () => {
-      const maxOffset = track.scrollWidth - container.clientWidth;
-      offset += speed;
-      if (offset >= maxOffset) {
-        offset = 0;
+      const cycleWidth = track.scrollWidth / 2;
+      if (cycleWidth > 0) {
+        offset += SCROLL_SPEED;
+        if (offset >= cycleWidth) {
+          offset -= cycleWidth;
+        }
+        track.style.transform = `translate3d(${-offset}px, 0, 0)`;
       }
-      track.style.transform = `translate3d(${-offset}px, 0, 0)`;
       rafId = requestAnimationFrame(tick);
     };
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [unique, canScroll, reduceMotion]);
+  }, [trackItems, continuous]);
 
   if (unique.length === 0) return null;
 
   const track = (
-    <div ref={trackRef} className="flex w-max gap-6 px-4 py-4 will-change-transform">
-      {unique.map((result) => (
-        <HallOfFameCard key={result.id} result={result} />
+    <div
+      ref={trackRef}
+      className="flex w-max gap-6 px-4 py-4 will-change-transform"
+    >
+      {trackItems.map((result, index) => (
+        <HallOfFameCard key={`${result.id}-${index}`} result={result} />
       ))}
     </div>
   );
 
-  if (reduceMotion || !canScroll) {
+  if (!continuous) {
     return (
       <div
         ref={containerRef}

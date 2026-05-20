@@ -1,4 +1,6 @@
-import { B2_BUCKET_NAME, setCorsHeaders } from './lib/helpers.js';
+import { authorizeB2, B2_BUCKET_NAME, setCorsHeaders } from './lib/helpers.js';
+
+const IMAGE_TYPES = /^image\//i;
 
 export default async function handler(req, res) {
   setCorsHeaders(res);
@@ -17,40 +19,49 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing path parameter' });
     }
 
-    console.log('📥 Downloading from B2:', filePath);
+    const inline = String(req.query.inline || '') === '1';
+    const decodedPath = decodeURIComponent(String(filePath));
+    const encodedPath = decodedPath
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
 
-    // Construct direct B2 public URL (bucket is public, no auth needed!)
-    const fileUrl = `https://f005.backblazeb2.com/file/${B2_BUCKET_NAME}/${filePath}`;
+    const auth = await authorizeB2();
+    const fileUrl = `${auth.downloadUrl}/file/${encodeURIComponent(B2_BUCKET_NAME)}/${encodedPath}`;
 
-    console.log('🔗 B2 URL:', fileUrl);
-
-    // Fetch file from B2 (no authorization needed for public buckets)
-    const fileResponse = await fetch(fileUrl);
+    const fileResponse = await fetch(fileUrl, {
+      headers: {
+        Authorization: auth.authorizationToken,
+      },
+    });
 
     if (!fileResponse.ok) {
-      console.error(`❌ B2 returned ${fileResponse.status}`);
+      console.error(`B2 download failed: ${fileResponse.status}`, decodedPath);
       return res.status(fileResponse.status).json({ error: 'File not found' });
     }
 
-    // Get file info
-    const contentType = fileResponse.headers.get('content-type') || 'application/pdf';
+    const contentType =
+      fileResponse.headers.get('content-type') || 'application/octet-stream';
     const contentLength = fileResponse.headers.get('content-length');
+    const fileName = decodedPath.split('/').pop() || 'file';
 
-    // Set download headers
-    const fileName = filePath.split('/').pop(); // Get filename from path
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+
+    if (inline || IMAGE_TYPES.test(contentType)) {
+      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    } else {
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    }
+
     if (contentLength) {
       res.setHeader('Content-Length', contentLength);
     }
 
-    console.log('✅ Sending file:', fileName);
-
-    // Stream the file
     const buffer = await fileResponse.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (error) {
-    console.error('❌ Download error:', error);
+    console.error('Download error:', error);
     res.status(500).json({ error: error.message || 'Download failed' });
   }
 }

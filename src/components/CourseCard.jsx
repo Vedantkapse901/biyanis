@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Star, Play, Users, Clock, BadgeCheck } from 'lucide-react';
 import { GlassCard } from './ui/GlassCard';
+import { ResolvedImage } from './ResolvedImage';
 
 export function CourseCard({ course, onEnroll }) {
   const [showDetails, setShowDetails] = useState(false);
@@ -14,7 +15,7 @@ export function CourseCard({ course, onEnroll }) {
       {/* Image Section */}
       <div className="relative h-40 bg-gradient-to-br from-[#D90429]/10 to-[#0A0F2C]/10 overflow-hidden">
         {course.image_url ? (
-          <img
+          <ResolvedImage
             src={course.image_url}
             alt={course.title}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"

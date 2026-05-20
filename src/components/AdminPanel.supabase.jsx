@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Lock, LogOut, Plus, Trash2, Bot, AlertTriangle, Save, Edit2, X, Upload, Eye, EyeOff } from 'lucide-react'
-import { useSlides, useCourses, useResults, useBranches, useStudentPortalMaterials, useStudents, useSupabaseMutation, useSupabaseStorage, useAdminAuth, useSupabaseTable, useStudyMaterials } from '../hooks/useSupabaseData'
+import { useSlides, useCourses, useResults, useBranches, useStudentPortalMaterials, useStudents, useSupabaseMutation, useAdminAuth, useSupabaseTable, useStudyMaterials } from '../hooks/useSupabaseData'
 import { GlassCard } from './ui/GlassCard'
 import { ThemeButton } from './ui/ThemeButton'
 import { AdminNavbar } from './AdminNavbar'
@@ -15,7 +15,7 @@ import { CoursesManagement } from './CoursesManagement'
 import { GalleryManagement } from './GalleryManagement'
 import { ColorChangePanel } from './ColorChangePanel'
 import { StudyMaterialsManagement } from './StudyMaterialsManagement'
-import { uploadToB2 } from '../lib/b2storage'
+import { uploadToB2 } from '../lib/mediaStorage'
 import { supabase } from '../lib/supabase'
 
 function readFileAsDataUrl(file) {
@@ -62,7 +62,6 @@ export function AdminPanel() {
 
   // Mutations
   const { insert, update, remove, loading: mutationLoading } = useSupabaseMutation()
-  const { uploadFile, loading: uploadLoading } = useSupabaseStorage()
 
   // Draft states
   const [draftSlides, setDraftSlides] = useState([])
@@ -179,14 +178,6 @@ export function AdminPanel() {
     }
   }
 
-  const handleUploadResultImage = async (file, resultId) => {
-    const result = await uploadFile('media', `results/${resultId}-${Date.now()}`, file)
-    if (result.success) {
-      await handleUpdateResult(resultId, { image_url: result.url })
-      setSaveStatus('Image uploaded!')
-    }
-  }
-
   // ==================== COURSES ====================
   const handleAddCourse = async (courseData) => {
     const result = await insert('courses', courseData)
@@ -258,7 +249,7 @@ export function AdminPanel() {
   const handleAddSlideWithFile = async (formData) => {
     try {
       setAddingSlide(true)
-      setSaveStatus('Uploading to B2 storage...')
+      setSaveStatus('Uploading...')
 
       console.log('Form data received:', formData)
 

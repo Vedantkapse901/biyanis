@@ -1,9 +1,13 @@
-import { useState } from 'react';
-import { Plus, Edit2, Trash2, X, Upload, AlertCircle, Loader } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, Edit2, Trash2, X, Upload, AlertCircle, Loader, Crop } from 'lucide-react';
 import { GlassCard } from './ui/GlassCard';
 import { HallOfFameCarousel } from './HallOfFameCarousel';
+import { ImageCircleCrop } from './ui/ImageCircleCrop';
 import { filterHallOfFame, filterTopAchievers } from '../lib/dedupeResults';
-import { uploadToB2 } from '../lib/b2storage';
+import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage';
+import { imageUrlToDataUrl } from '../lib/cropImage';
+import { buildB2DisplayUrl } from '../lib/b2MediaUrls';
+import { ResolvedImage } from './ResolvedImage';
 
 export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loading = false }) {
   const [editingId, setEditingId] = useState(null);
@@ -11,6 +15,11 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
   const [showForm, setShowForm] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [cropFileName, setCropFileName] = useState('photo.jpg');
+  const [cropSourceFile, setCropSourceFile] = useState(null);
+  const [loadingCrop, setLoadingCrop] = useState(false);
+  const previewBlobRef = useRef(null);
 
   const handleAddNew = () => {
     setFormData({
@@ -22,7 +31,10 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
       section: 'hallOfFame',
       photo: '',
     });
+    revokePreviewBlob();
     setImagePreview(null);
+    setCropImageSrc(null);
+    setCropSourceFile(null);
     setEditingId(null);
     setShowForm(true);
   };
@@ -33,41 +45,89 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
       rank: result.rank || result.achievement || '',
       section: result.section || 'hallOfFame',
     });
-    setImagePreview(result.photo || null);
+    revokePreviewBlob();
+    setImagePreview(result.photo ? buildB2DisplayUrl(result.photo) : null);
+    setCropImageSrc(null);
+    setCropSourceFile(null);
     setEditingId(result.id);
     setShowForm(true);
   };
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const toAbsoluteImageSrc = (src) => {
+    if (!src) return src;
+    if (src.startsWith('http') || src.startsWith('data:') || src.startsWith('blob:')) return src;
+    if (src.startsWith('/')) return `${window.location.origin}${src}`;
+    return src;
+  };
 
+  const revokePreviewBlob = () => {
+    if (previewBlobRef.current) {
+      URL.revokeObjectURL(previewBlobRef.current);
+      previewBlobRef.current = null;
+    }
+  };
+
+  const uploadCroppedFile = async (file, previewUrl) => {
     try {
       setUploading(true);
+      revokePreviewBlob();
+      if (previewUrl.startsWith('blob:')) previewBlobRef.current = previewUrl;
+      setImagePreview(previewUrl);
 
-      // Show preview while uploading
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result;
-        setImagePreview(dataUrl);
-      };
-      reader.readAsDataURL(file);
-
-      // Upload to B2 storage
-      const result = await uploadToB2(file, 'results/');
-
-      setFormData({
-        ...formData,
-        photo: result.publicUrl,
-      });
-
-      console.log('✅ Photo uploaded successfully:', result.publicUrl);
+      const storagePath = buildStoragePath('results', file.name);
+      const { url, storageRef } = await uploadAdminFile({ storagePath, file, contentType: file.type });
+      setFormData((prev) => ({
+        ...prev,
+        photo: storageRef,
+      }));
+      setImagePreview(url);
+      revokePreviewBlob();
+      console.log('✅ Photo uploaded:', url);
     } catch (error) {
       console.error('❌ Photo upload failed:', error);
       alert('Photo upload failed: ' + error.message);
       setImagePreview(null);
+      setFormData((prev) => ({ ...prev, photo: '' }));
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    setCropFileName(file.name);
+    setCropSourceFile(file);
+    setCropImageSrc('pending');
+  };
+
+  const handleCropConfirm = ({ file, previewUrl }) => {
+    setCropImageSrc(null);
+    setCropSourceFile(null);
+    uploadCroppedFile(file, previewUrl);
+  };
+
+  const handleCropCancel = () => {
+    setCropImageSrc(null);
+    setCropSourceFile(null);
+  };
+
+  const handleAdjustCrop = async () => {
+    const src = toAbsoluteImageSrc(imagePreview);
+    if (!src) return;
+
+    try {
+      setLoadingCrop(true);
+      setCropFileName('photo.jpg');
+      setCropSourceFile(null);
+      setCropImageSrc(src.startsWith('data:') ? src : await imageUrlToDataUrl(src));
+    } catch (error) {
+      console.error('Could not load image for crop:', error);
+      alert('Could not load the photo for cropping. Try uploading again.');
+    } finally {
+      setLoadingCrop(false);
     }
   };
 
@@ -111,14 +171,20 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
 
     setShowForm(false);
     setFormData(null);
+    revokePreviewBlob();
     setImagePreview(null);
+    setCropImageSrc(null);
+    setCropSourceFile(null);
     setEditingId(null);
   };
 
   const handleCancel = () => {
     setShowForm(false);
     setFormData(null);
+    revokePreviewBlob();
     setImagePreview(null);
+    setCropImageSrc(null);
+    setCropSourceFile(null);
     setEditingId(null);
   };
 
@@ -136,6 +202,15 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
 
   return (
     <div className="space-y-8">
+      {(cropSourceFile || (cropImageSrc && cropImageSrc !== 'pending')) && (
+        <ImageCircleCrop
+          imageSrc={cropImageSrc === 'pending' ? '' : cropImageSrc}
+          sourceFile={cropSourceFile}
+          fileName={cropFileName}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
       {/* Add New Button */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-[#0A0F2C]">Results Management</h2>
@@ -258,34 +333,55 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
                   <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">
                     Student Photo (Circular) *
                   </label>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Uploads go to Backblaze B2 via /api (no Supabase Storage).
+                  </p>
                   <div className="space-y-3">
                     <label className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:border-[#D90429] transition-colors relative">
-                      {uploading ? (
+                      {uploading || loadingCrop ? (
                         <>
                           <Loader className="h-5 w-5 text-[#D90429] animate-spin" />
-                          <span className="text-sm text-slate-600">Uploading...</span>
+                          <span className="text-sm text-slate-600">
+                            {loadingCrop ? 'Loading crop…' : 'Uploading…'}
+                          </span>
                         </>
                       ) : (
                         <>
                           <Upload className="h-5 w-5 text-slate-400" />
-                          <span className="text-sm text-slate-600">Click to upload photo</span>
+                          <span className="text-sm text-slate-600">Upload photo (crop for circle)</span>
                         </>
                       )}
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={handleImageUpload}
-                        disabled={uploading}
+                        onChange={handleImageSelect}
+                        disabled={uploading || loadingCrop || !!cropImageSrc}
                         className="hidden"
                       />
                     </label>
                     {imagePreview && (
-                      <div className="flex justify-center">
-                        <img
-                          src={imagePreview}
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="relative">
+                        <ResolvedImage
+                          src={formData.photo || imagePreview}
                           alt="Preview"
                           className="h-32 w-32 object-cover rounded-full border-4 border-[#D90429] shadow-lg"
                         />
+                          {uploading && (
+                            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                              <Loader className="h-8 w-8 text-white animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAdjustCrop}
+                          disabled={uploading || loadingCrop || !!cropImageSrc}
+                          className="flex items-center gap-2 rounded-lg border border-[#D90429] px-3 py-1.5 text-sm font-semibold text-[#D90429] hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <Crop className="h-4 w-4" />
+                          Crop again
+                        </button>
                       </div>
                     )}
                   </div>
@@ -336,7 +432,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
                     {hallOfFameResults.map((result) => (
                       <div key={result.id} className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
                         {result.photo && (
-                          <img
+                          <ResolvedImage
                             src={result.photo}
                             alt={result.name}
                             className="h-10 w-10 object-cover rounded-full flex-shrink-0"
@@ -390,7 +486,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
                     {/* Circular Photo */}
                     <div className="relative mb-3 flex justify-center">
                       {result.photo ? (
-                        <img
+                        <ResolvedImage
                           src={result.photo}
                           alt={result.name}
                           className="h-28 w-28 object-cover rounded-full border-3 border-slate-200 shadow-md"

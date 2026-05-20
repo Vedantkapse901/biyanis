@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, X, Upload, Loader, Link as LinkIcon } from 'lucide-react';
 import { GlassCard } from './ui/GlassCard';
-import { uploadToB2 } from '../lib/b2storage';
+import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage';
+import { buildB2DisplayUrl } from '../lib/b2MediaUrls';
+import { ResolvedImage } from './ResolvedImage';
 
 export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loading = false }) {
   const [editingId, setEditingId] = useState(null);
@@ -25,7 +27,7 @@ export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loadi
 
   const handleEdit = (item) => {
     setFormData({ ...item });
-    setImagePreview(item.image_url || null);
+    setImagePreview(item.image_url ? buildB2DisplayUrl(item.image_url) : null);
     setEditingId(item.id);
     setShowForm(true);
   };
@@ -45,16 +47,17 @@ export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loadi
       };
       reader.readAsDataURL(file);
 
-      // Upload to B2 storage
-      const result = await uploadToB2(file, 'gallery/');
+      const storagePath = buildStoragePath('gallery', file.name);
+      const { url, storageRef } = await uploadAdminFile({ storagePath, file, contentType: file.type });
 
       setFormData({
         ...formData,
-        image_url: result.publicUrl,
-        drive_link: '', // Clear drive link if photo is uploaded
+        image_url: storageRef,
+        drive_link: '',
       });
+      setImagePreview(url);
 
-      console.log('✅ Gallery photo uploaded:', result.publicUrl);
+      console.log('✅ Gallery photo uploaded:', url);
     } catch (error) {
       console.error('❌ Photo upload failed:', error);
       alert('Photo upload failed: ' + error.message);
@@ -266,14 +269,10 @@ export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loadi
             {imagePreview && (
               <div className="flex justify-center">
                 <div className="relative">
-                  <img
-                    src={imagePreview}
+                  <ResolvedImage
+                    src={formData.image_url || imagePreview}
                     alt="Preview"
                     className="h-40 w-40 object-cover rounded-full border-4 border-[#D90429] shadow-lg"
-                    onError={() => {
-                      setImagePreview(null);
-                      alert('Image preview failed to load. Check the URL.');
-                    }}
                   />
                   <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1.5">
                     <span className="text-xs font-bold">✓</span>
@@ -312,13 +311,10 @@ export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loadi
                   {/* Circular Photo */}
                   <div className="relative mb-4 flex justify-center">
                     {item.image_url ? (
-                      <img
+                      <ResolvedImage
                         src={item.image_url}
                         alt={item.title}
                         className="h-32 w-32 object-cover rounded-full border-4 border-slate-200 shadow-md"
-                        onError={(e) => {
-                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22128%22 height=%22128%22%3E%3Crect fill=%22%23ddd%22 width=%22128%22 height=%22128%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2214%22%3EImage Error%3C/text%3E%3C/svg%3E';
-                        }}
                       />
                     ) : (
                       <div className="h-32 w-32 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white font-bold">

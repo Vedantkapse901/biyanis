@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Upload, Trash2, Plus, Download } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
-import { uploadToB2Fast } from '../lib/b2storage-fast'
+import { uploadAdminFile } from '../lib/mediaStorage'
 
 const COURSES = [
   { id: 'JEE', name: 'JEE Main & Advanced' },
@@ -35,20 +35,21 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
       return
     }
 
-    // Auto-upload to B2 Cloud Storage
-    setUploadProgress('🔄 Uploading to B2 Storage...')
+    setUploadProgress('🔄 Uploading...')
     setUploadLoading(true)
 
     try {
-      // Generate B2 path: study-materials/JEE/class-11/filename.pdf
       const timestamp = Date.now()
       const fileName = `${timestamp}_${editingFile.name}`
-      const b2Path = `study-materials/${selectedCourse}/class-${selectedClass}/${fileName}`
+      const storagePath = `study-materials/${selectedCourse}/class-${selectedClass}/${fileName}`
 
-      // Upload to B2 using existing bucket (FAST - no base64!)
-      const uploadResult = await uploadToB2Fast(editingFile, b2Path)
+      const { url } = await uploadAdminFile({
+        storagePath,
+        file: editingFile,
+        contentType: editingFile.type || 'application/pdf',
+      })
 
-      if (!uploadResult.publicUrl) {
+      if (!url) {
         alert('❌ Upload failed: Could not get public URL')
         setUploadProgress('')
         setUploadLoading(false)
@@ -57,14 +58,11 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
 
       setUploadProgress('✅ Upload successful! Saving to database...')
 
-      // Create material record with file path (signed URLs generated on-demand)
-      const filePath = `study-materials/${selectedCourse}/class-${selectedClass}/${fileName}`
-
       const newMaterial = {
         title: editingTitle,
         course: selectedCourse,
         class_level: selectedClass,
-        pdf_url: filePath, // Store actual file path only (signed URLs generated on-demand)
+        pdf_url: url,
         file_size: editingFile.size,
         display_order: filteredMaterials.length,
       }
@@ -281,14 +279,14 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
       {/* Info Box */}
       <div className="rounded-lg bg-green-50 border border-green-200 p-4">
         <p className="text-sm text-green-800">
-          <strong>💡 How it works:</strong> Upload PDF materials for each course-class combination. PDFs are automatically uploaded to B2 Cloud Storage and saved to database. Students will see only the materials relevant to their course and class level when they log in.
+          <strong>💡 How it works:</strong> Upload PDFs for each course and class. Files go to Supabase Storage (direct from the browser, like EYE10) and save to the database. Students only see materials for their course.
         </p>
       </div>
 
       {/* Storage Info */}
       <div className="rounded-lg bg-amber-50 border border-amber-200 p-4">
         <p className="text-sm text-amber-800">
-          <strong>☁️ B2 Cloud Storage:</strong> PDFs are automatically stored in B2 bucket 'Biyanisclasseswebsite' at: <br />
+          <strong>☁️ Storage path:</strong> PDFs are stored under: <br />
           <code className="bg-white px-2 py-1 rounded text-xs font-mono">study-materials/{'{course}'}/class-{'{class}'}/{'{filename}'}</code>
         </p>
       </div>

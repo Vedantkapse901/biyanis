@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react';
 import { HardDrive, Trash2, RefreshCw, Download } from 'lucide-react';
-import { listB2Files, deleteFromB2 } from '../lib/b2storage';
+import { deleteAdminFile, isB2StorageBackend, listAdminFiles } from '../lib/mediaStorage';
+import { supabase } from '../lib/supabase';
 import { GlassCard } from './ui/GlassCard';
+
+function supabasePublicUrl(storagePath) {
+  if (isB2StorageBackend() || !supabase || !storagePath) return '';
+  const path = String(storagePath).replace(/^\/+/, '');
+  const { data } = supabase.storage.from('media').getPublicUrl(path);
+  return data?.publicUrl || '';
+}
 
 export function StorageManagement({ saveStatus, setSaveStatus }) {
   const [files, setFiles] = useState([]);
@@ -11,11 +19,11 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
   const loadFiles = async () => {
     setLoading(true);
     try {
-      setSaveStatus('Loading files from B2 storage...');
-      const result = await listB2Files('', 1000);
+      setSaveStatus('Loading files from cloud storage...');
+      const result = await listAdminFiles('', 1000);
       const fileList = result.files || [];
       setFiles(fileList);
-      setSaveStatus(`✓ Loaded ${fileList.length} files from B2`);
+      setSaveStatus(`✓ Loaded ${fileList.length} files`);
       setTimeout(() => setSaveStatus(''), 2500);
     } catch (error) {
       console.error('Failed to load files:', error);
@@ -37,7 +45,7 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
 
     try {
       setSaveStatus(`Deleting ${fileName}...`);
-      await deleteFromB2(fileName, fileId);
+      await deleteAdminFile(fileName);
       setFiles(files.filter((f) => f.fileId !== fileId));
       setSaveStatus(`✓ ${fileName} deleted successfully`);
       setTimeout(() => setSaveStatus(''), 2500);
@@ -112,7 +120,9 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
         <GlassCard className="bg-gradient-to-br from-emerald-50 to-emerald-100">
           <div className="text-center">
             <HardDrive className="mx-auto h-5 w-5 text-[#D90429]" />
-            <div className="text-xs font-semibold text-slate-600">Backblaze B2</div>
+            <div className="text-xs font-semibold text-slate-600">
+              {isB2StorageBackend() ? 'Backblaze B2' : 'Supabase Storage'}
+            </div>
           </div>
         </GlassCard>
       </div>
@@ -155,7 +165,7 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
         {filteredFiles.length === 0 ? (
           <div className="py-12 text-center">
             <HardDrive className="mx-auto h-12 w-12 text-slate-300" />
-            <p className="mt-4 text-sm font-semibold text-slate-500">No files in B2 storage</p>
+            <p className="mt-4 text-sm font-semibold text-slate-500">No files in storage</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -182,7 +192,12 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
                 {/* Actions */}
                 <div className="flex items-center gap-2">
                   <a
-                    href={`${import.meta.env.VITE_B2_BUCKET_NAME ? `https://f001.backblazeb2.com/file/${import.meta.env.VITE_B2_BUCKET_NAME}/${encodeURIComponent(file.fileName)}` : '#'}`}
+                    href={
+                      supabasePublicUrl(file.fileName) ||
+                      (import.meta.env.VITE_B2_BUCKET_NAME
+                        ? `https://f001.backblazeb2.com/file/${import.meta.env.VITE_B2_BUCKET_NAME}/${encodeURIComponent(file.fileName)}`
+                        : '#')
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 rounded bg-blue-100 px-3 py-2 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-200"
@@ -207,12 +222,13 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
 
       {/* Info */}
       <GlassCard className="border-l-4 border-l-blue-500 bg-blue-50">
-        <h3 className="mb-2 font-bold text-blue-900">About Backblaze B2</h3>
+        <h3 className="mb-2 font-bold text-blue-900">
+          About {isB2StorageBackend() ? 'Backblaze B2' : 'Supabase Storage'}
+        </h3>
         <ul className="space-y-1 text-sm text-blue-800">
-          <li>✓ All files are stored securely on Backblaze B2 cloud storage</li>
-          <li>✓ Files are publicly accessible via direct URLs</li>
+          <li>✓ Files upload directly from the admin panel (no separate Node server)</li>
+          <li>✓ Public URLs work for slides, gallery, results, and study PDFs</li>
           <li>✓ You can delete files here to free up storage space</li>
-          <li>✓ When you upload files in admin panels, they automatically go to B2</li>
         </ul>
       </GlassCard>
     </div>

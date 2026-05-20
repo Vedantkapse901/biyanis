@@ -49,20 +49,38 @@ export default async function handler(req, res) {
     }
     console.log('✓ Admin verified');
 
-    // Get file info from headers
-    const fileName = req.headers['x-file-name'];
-    const folder = req.headers['x-folder'] || 'uploads/';
-    const contentType = req.headers['x-content-type'] || 'application/octet-stream';
-    let fileBuffer = req.body;
+    let fileName;
+    let folder = 'uploads/';
+    let contentType = 'application/octet-stream';
+    let fileBuffer;
 
-    // Ensure it's a Buffer
-    if (!(fileBuffer instanceof Buffer)) {
-      if (typeof fileBuffer === 'string') {
-        fileBuffer = Buffer.from(fileBuffer, 'utf-8');
-      } else if (fileBuffer && typeof fileBuffer === 'object') {
-        fileBuffer = Buffer.from(JSON.stringify(fileBuffer));
-      } else {
-        fileBuffer = Buffer.from(fileBuffer);
+    const isJson =
+      req.headers['content-type']?.includes('application/json') ||
+      (req.body && typeof req.body === 'object' && req.body.file);
+
+    if (isJson) {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      fileName = body.fileName;
+      folder = body.folder || 'uploads/';
+      contentType = body.contentType || 'application/octet-stream';
+      if (!body.file) {
+        return res.status(400).json({ error: 'Missing file data' });
+      }
+      fileBuffer = Buffer.from(body.file, 'base64');
+    } else {
+      fileName = req.headers['x-file-name'];
+      folder = req.headers['x-folder'] || 'uploads/';
+      contentType = req.headers['x-content-type'] || 'application/octet-stream';
+      fileBuffer = req.body;
+
+      if (!(fileBuffer instanceof Buffer)) {
+        if (typeof fileBuffer === 'string') {
+          fileBuffer = Buffer.from(fileBuffer, 'utf-8');
+        } else if (fileBuffer && typeof fileBuffer === 'object') {
+          fileBuffer = Buffer.from(JSON.stringify(fileBuffer));
+        } else {
+          fileBuffer = Buffer.from(fileBuffer);
+        }
       }
     }
 
@@ -112,11 +130,15 @@ export default async function handler(req, res) {
     // Return public URL directly
     const publicUrl = `${auth.downloadUrl}/file/${encodeURIComponent(B2_BUCKET_NAME)}/${encodeURIComponent(fullFileName)}`;
 
+    const proxyUrl = `/api/download?path=${encodeURIComponent(uploadResult.fileName)}`;
+
     res.json({
       success: true,
       fileName: uploadResult.fileName,
       fileId: uploadResult.fileId,
+      downloadUrl: proxyUrl,
       publicUrl,
+      b2Url: publicUrl,
     });
   } catch (error) {
     console.error('❌ Upload error:', error.message);

@@ -5,6 +5,7 @@ import { AccentText } from '../components/ui/AccentText';
 import { HallOfFameCarousel } from '../components/HallOfFameCarousel';
 import { useResults } from '../hooks/useSupabaseData';
 import { filterHallOfFame, filterTopAchievers } from '../lib/dedupeResults';
+import { ResolvedImage } from '../components/ResolvedImage';
 
 export function Results() {
   const { data: results, loading } = useResults();
@@ -56,7 +57,7 @@ export function Results() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <HallOfFameCarousel results={hallOfFameResults} />
+            <HallOfFameCarousel results={hallOfFameResults} alwaysRoll />
           </motion.div>
         ) : (
           <div className="mb-24 text-center text-slate-600">No Hall of Fame entries yet.</div>
@@ -89,7 +90,7 @@ export function Results() {
                   />
                   <div className="relative mx-auto mb-5 mt-4 flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-slate-100 bg-slate-100 transition-colors group-hover:border-[#D90429]">
                     {topper.photo ? (
-                      <img src={topper.photo} alt={topper.name} className="h-full w-full object-cover" />
+                      <ResolvedImage src={topper.photo} alt={topper.name} className="h-full w-full object-cover" />
                     ) : (
                       <motion.div
                         className="flex h-full w-full items-center justify-center bg-[#0A0F2C] font-serif text-4xl font-bold text-white"

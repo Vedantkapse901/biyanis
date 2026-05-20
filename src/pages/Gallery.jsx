@@ -4,11 +4,14 @@ import { useGalleryFolders } from '../hooks/useSupabaseData';
 import { PageTransition } from '../components/ui/PageTransition';
 import { GlassCard } from '../components/ui/GlassCard';
 import { AccentText } from '../components/ui/AccentText';
+import { buildB2DisplayUrl, extractB2ObjectKey } from '../lib/b2MediaUrls';
+import { ResolvedImage } from '../components/ResolvedImage';
 
 function mediaSrc(item, preferThumbnail) {
   const url = preferThumbnail ? item?.thumbnail_url : item?.url;
   const fallback = preferThumbnail ? item?.url : item?.thumbnail_url;
   const src = (url && String(url).trim()) || (fallback && String(fallback).trim()) || '';
+  if (extractB2ObjectKey(src)) return buildB2DisplayUrl(src);
   return src;
 }
 
@@ -205,7 +208,12 @@ export function Gallery() {
                             preload="metadata"
                           />
                         ) : (
-                          <img src={src} alt={item.title} className="h-64 w-full object-cover" draggable="false" />
+                          <ResolvedImage
+                            src={item.url || item.thumbnail_url}
+                            alt={item.title}
+                            className="h-64 w-full object-cover"
+                            draggable="false"
+                          />
                         )}
                       </div>
                     );

@@ -10,7 +10,7 @@ const COURSES = [
 
 const CLASS_LEVELS = [11, 12]
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 export function StudentDashboard({ student, materials, onLogout }) {
   const [filteredMaterials, setFilteredMaterials] = useState([])
@@ -38,10 +38,16 @@ export function StudentDashboard({ student, materials, onLogout }) {
 
       setSigningUrl(material.id)
 
-      // Extract file path from pdf_url
       let filePath = material.pdf_url
 
-      // Handle different URL formats
+      // Supabase Storage (or any full public HTTPS URL) — open directly, no backend
+      if (filePath && /^https?:\/\//i.test(filePath)) {
+        window.location.href = filePath
+        setSigningUrl(null)
+        return
+      }
+
+      // Legacy B2 paths
       if (filePath.includes('/file/Biyanisclasseswebsite/')) {
         // Full B2 URL format: https://f005.backblazeb2.com/file/Biyanisclasseswebsite/study-materials/...
         filePath = filePath.split('/file/Biyanisclasseswebsite/')[1]

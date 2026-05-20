@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Plus, Trash2, Edit2, X, FileText } from 'lucide-react'
+import { Plus, Trash2, Edit2, X, FileText, Upload, Loader } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
+import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage'
 
 const EXAM_TYPES = [
   { id: 'jee', label: '🔬 JEE', color: 'bg-blue-100' },
@@ -44,6 +45,7 @@ const SECTION_TEMPLATES = {
 export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDelete, isLoading }) {
   const [selectedExam, setSelectedExam] = useState('jee')
   const [editingId, setEditingId] = useState(null)
+  const [pdfUploadingId, setPdfUploadingId] = useState(null)
 
   const examMaterials = materials.filter(m => m.exam_type === selectedExam)
 
@@ -65,6 +67,24 @@ export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDel
   const handleDeleteMaterial = (id) => {
     if (window.confirm('Delete this material?')) {
       onDelete(id)
+    }
+  }
+
+  const handlePdfUpload = async (materialId, file) => {
+    if (!file) return
+    try {
+      setPdfUploadingId(materialId)
+      const storagePath = buildStoragePath(`student-portal/${selectedExam}`, file.name)
+      const { url } = await uploadAdminFile({ storagePath, file, contentType: file.type })
+      const material = materials.find((m) => m.id === materialId)
+      if (material) {
+        await onUpdate(materialId, { ...material, pdf_url: url })
+      }
+    } catch (err) {
+      console.error('PDF upload failed:', err)
+      alert('PDF upload failed: ' + err.message)
+    } finally {
+      setPdfUploadingId(null)
     }
   }
 
@@ -171,6 +191,29 @@ export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDel
                                 placeholder="Paste PDF URL or Google Drive link"
                                 className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
                               />
+                              <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded border border-dashed border-slate-300 px-2 py-2 text-xs font-semibold text-slate-600 hover:border-[#D90429]">
+                                {pdfUploadingId === material.id ? (
+                                  <>
+                                    <Loader className="h-3 w-3 animate-spin text-[#D90429]" />
+                                    Uploading to B2…
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="h-3 w-3" />
+                                    Or upload PDF to B2
+                                  </>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="application/pdf,.pdf"
+                                  className="hidden"
+                                  disabled={pdfUploadingId === material.id}
+                                  onChange={(e) => {
+                                    handlePdfUpload(material.id, e.target.files?.[0])
+                                    e.target.value = ''
+                                  }}
+                                />
+                              </label>
                             </div>
 
                             <button

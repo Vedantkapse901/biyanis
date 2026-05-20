@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Upload, Image as ImageIcon, Loader } from 'lucide-react';
 import { GlassCard } from './ui/GlassCard';
+import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage';
+import { buildB2DisplayUrl } from '../lib/b2MediaUrls';
+import { ResolvedImage } from './ResolvedImage';
 
 const ALL_SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 const EXAM_TYPES = ['JEE Main', 'JEE Advanced', 'NEET', 'MHT-CET'];
@@ -21,6 +24,7 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
   const [formData, setFormData] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   const handleAddNew = () => {
     setFormData({
@@ -54,7 +58,7 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
       what_you_learn: Array.isArray(course.what_you_learn) ? course.what_you_learn : [course.what_you_learn || ''],
       requirements: Array.isArray(course.requirements) ? course.requirements : [course.requirements || ''],
     });
-    setImagePreview(course.image_url || null);
+    setImagePreview(course.image_url ? buildB2DisplayUrl(course.image_url) : null);
     setEditingId(course.id);
     setShowForm(true);
   };
@@ -130,19 +134,22 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
     }
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result;
-        setImagePreview(dataUrl);
-        setFormData({
-          ...formData,
-          image_url: dataUrl,
-        });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    e.target.value = '';
+
+    try {
+      setImageUploading(true);
+      const storagePath = buildStoragePath('courses', file.name);
+      const { url, storageRef } = await uploadAdminFile({ storagePath, file, contentType: file.type });
+      setImagePreview(url);
+      setFormData((prev) => ({ ...prev, image_url: storageRef }));
+    } catch (err) {
+      console.error('Course image upload failed:', err);
+      alert('Image upload failed: ' + err.message);
+    } finally {
+      setImageUploading(false);
     }
   };
 
@@ -367,17 +374,31 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
                   <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Course Thumbnail Image</label>
                   <div className="space-y-3">
                     <label className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:border-[#D90429] transition-colors">
-                      <Upload className="h-5 w-5 text-slate-400" />
-                      <span className="text-sm text-slate-600">Click to upload image</span>
+                      {imageUploading ? (
+                        <>
+                          <Loader className="h-5 w-5 text-[#D90429] animate-spin" />
+                          <span className="text-sm text-slate-600">Uploading to B2…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-5 w-5 text-slate-400" />
+                          <span className="text-sm text-slate-600">Click to upload image (B2)</span>
+                        </>
+                      )}
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleImageUpload}
+                        disabled={imageUploading}
                         className="hidden"
                       />
                     </label>
                     {imagePreview && (
-                      <img src={imagePreview} alt="Preview" className="h-24 w-24 object-cover rounded-lg" />
+                      <ResolvedImage
+                        src={formData.image_url || imagePreview}
+                        alt="Preview"
+                        className="h-24 w-24 object-cover rounded-lg"
+                      />
                     )}
                   </div>
                 </div>
@@ -493,7 +514,11 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
               <div className="space-y-4">
                 {/* Image */}
                 {course.image_url && (
-                  <img src={course.image_url} alt={course.title} className="w-full h-32 object-cover rounded-lg" />
+                  <ResolvedImage
+                    src={course.image_url}
+                    alt={course.title}
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
                 )}
 
                 {/* Header */}

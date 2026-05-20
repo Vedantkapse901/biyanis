@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Lock, LogOut, Plus, Trash2, Bot, AlertTriangle, Save, HardDrive } from 'lucide-react';
 import { AppContext } from '../context/AppContext';
 import { defaultData } from '../data/defaultData';
-import { uploadToB2, deleteFromB2, listB2Files } from '../lib/b2storage';
+import { uploadToB2, deleteFromB2, listB2Files } from '../lib/mediaStorage';
 import { GlassCard } from './ui/GlassCard';
 import { ThemeButton } from './ui/ThemeButton';
 import { StorageManagement } from './StorageManagement';
