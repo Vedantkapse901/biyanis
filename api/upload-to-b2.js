@@ -9,12 +9,25 @@ import {
 } from './lib/helpers.js';
 
 export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '500mb',
-    },
-  },
+  api: { bodyParser: false },
 };
+
+async function readRawBody(req) {
+  if (Buffer.isBuffer(req.body) && req.body.length > 0) {
+    return req.body;
+  }
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+function getHeader(req, name) {
+  const key = name.toLowerCase();
+  const h = req.headers || {};
+  return h[key] ?? h[name] ?? '';
+}
 
 export default async function handler(req, res) {
   setCorsHeaders(res);
@@ -54,12 +67,11 @@ export default async function handler(req, res) {
     let contentType = 'application/octet-stream';
     let fileBuffer;
 
-    const isJson =
-      req.headers['content-type']?.includes('application/json') ||
-      (req.body && typeof req.body === 'object' && req.body.file);
+    const rawBody = await readRawBody(req);
+    const requestContentType = getHeader(req, 'content-type');
 
-    if (isJson) {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    if (requestContentType.includes('application/json')) {
+      const body = JSON.parse(rawBody.length ? rawBody.toString('utf8') : '{}');
       fileName = body.fileName;
       folder = body.folder || 'uploads/';
       contentType = body.contentType || 'application/octet-stream';
@@ -68,20 +80,10 @@ export default async function handler(req, res) {
       }
       fileBuffer = Buffer.from(body.file, 'base64');
     } else {
-      fileName = req.headers['x-file-name'];
-      folder = req.headers['x-folder'] || 'uploads/';
-      contentType = req.headers['x-content-type'] || 'application/octet-stream';
-      fileBuffer = req.body;
-
-      if (!(fileBuffer instanceof Buffer)) {
-        if (typeof fileBuffer === 'string') {
-          fileBuffer = Buffer.from(fileBuffer, 'utf-8');
-        } else if (fileBuffer && typeof fileBuffer === 'object') {
-          fileBuffer = Buffer.from(JSON.stringify(fileBuffer));
-        } else {
-          fileBuffer = Buffer.from(fileBuffer);
-        }
-      }
+      fileName = getHeader(req, 'x-file-name');
+      folder = getHeader(req, 'x-folder') || 'uploads/';
+      contentType = getHeader(req, 'x-content-type') || 'application/octet-stream';
+      fileBuffer = rawBody;
     }
 
     console.log('📄 Received:', fileName, `(${(fileBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
