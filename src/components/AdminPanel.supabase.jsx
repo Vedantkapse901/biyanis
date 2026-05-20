@@ -16,6 +16,7 @@ import { GalleryManagement } from './GalleryManagement'
 import { ColorChangePanel } from './ColorChangePanel'
 import { StudyMaterialsManagement } from './StudyMaterialsManagement'
 import { uploadToB2 } from '../lib/mediaStorage'
+import { createResultAdmin, deleteResultAdmin, updateResultAdmin } from '../lib/resultsAdminApi'
 import { supabase } from '../lib/supabase'
 
 function readFileAsDataUrl(file) {
@@ -543,26 +544,24 @@ export function AdminPanel() {
           <ResultsManagement
             results={draftResults}
             onAdd={async (data) => {
-              const result = await insert('results', data);
-              if (!result.success) throw new Error(result.error || 'Failed to add student');
+              const saved = await createResultAdmin(data);
+              setDraftResults((prev) => [saved, ...prev]);
               setSaveStatus('Student added!');
               await refetchResults();
             }}
             onUpdate={async (id, data) => {
-              const result = await update('results', id, data);
-              if (!result.success) throw new Error(result.error || 'Failed to update student');
-              const saved = result.data?.[0];
+              const saved = await updateResultAdmin(id, data);
               setDraftResults((prev) =>
                 prev.map((row) =>
-                  String(row.id) === String(id) ? { ...row, ...data, ...saved } : row
+                  String(row.id) === String(id) ? { ...row, ...saved } : row
                 )
               );
               setSaveStatus('Student updated!');
               await refetchResults();
             }}
             onDelete={async (id) => {
-              const result = await remove('results', id);
-              if (!result.success) throw new Error(result.error || 'Failed to delete student');
+              await deleteResultAdmin(id);
+              setDraftResults((prev) => prev.filter((row) => String(row.id) !== String(id)));
               setSaveStatus('Student deleted!');
               await refetchResults();
             }}

@@ -234,7 +234,7 @@ export function useSupabaseMutation() {
       setError(null)
       const { data: result, error: err } = await supabase
         .from(table)
-        .update({ ...data, updated_at: new Date().toISOString() })
+        .update(data)
         .eq('id', id)
         .select()
 

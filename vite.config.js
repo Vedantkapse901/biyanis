@@ -75,6 +75,7 @@ const API_ROUTES = {
   '/api/upload-to-b2': './api/upload-to-b2.js',
   '/api/get-signed-url': './api/get-signed-url.js',
   '/api/health': './api/health.js',
+  '/api/admin-results': './api/admin-results.js',
 };
 
 /** Local dev: Vercel-style /api handlers without a separate Node server */
@@ -90,6 +91,8 @@ function apiDev() {
         }
 
         res.setHeader('Access-Control-Allow-Origin', '*');
+
+        loadB2Env();
 
         if (url === '/api/upload-to-b2') {
           res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -108,12 +111,35 @@ function apiDev() {
             res.end(JSON.stringify({ error: 'Method not allowed' }));
             return;
           }
-          loadB2Env();
           const chunks = [];
           for await (const chunk of req) chunks.push(chunk);
           req.body = Buffer.concat(chunks);
           req.headers['content-type'] =
             req.headers['content-type'] || req.headers['Content-Type'] || '';
+        } else if (url === '/api/admin-results') {
+          res.setHeader('Access-Control-Allow-Methods', 'POST, PATCH, PUT, DELETE, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+          if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
+            res.statusCode = 405;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'Method not allowed' }));
+            return;
+          }
+          const chunks = [];
+          for await (const chunk of req) chunks.push(chunk);
+          const raw = Buffer.concat(chunks);
+          if (raw.length) {
+            try {
+              req.body = JSON.parse(raw.toString('utf8'));
+            } catch {
+              req.body = raw;
+            }
+          }
         } else {
           res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
           if (req.method === 'OPTIONS') {
@@ -127,7 +153,6 @@ function apiDev() {
             res.end(JSON.stringify({ error: 'Method not allowed' }));
             return;
           }
-          loadB2Env();
         }
 
         try {

@@ -13,6 +13,18 @@ export const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABAS
 export const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let b2AuthCache = null;
+let supabaseAdminClient = null;
+
+/** Service-role client — bypasses RLS for trusted server routes */
+export function getSupabaseAdmin() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
+  if (!supabaseAdminClient) {
+    supabaseAdminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return supabaseAdminClient;
+}
 
 // Verify admin token
 export async function verifyAdminToken(token) {
@@ -109,7 +121,7 @@ export async function authorizeB2() {
 // CORS helper
 export function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'Content-Type, Authorization, X-File-Name, X-Folder, X-Content-Type'
