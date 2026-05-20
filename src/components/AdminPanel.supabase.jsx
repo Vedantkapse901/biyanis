@@ -542,9 +542,24 @@ export function AdminPanel() {
         {activeTab === 'results' && (
           <ResultsManagement
             results={draftResults}
-            onAdd={(data) => insert('results', data).then(() => refetchResults())}
-            onUpdate={(id, data) => update('results', id, data).then(() => refetchResults())}
-            onDelete={(id) => remove('results', id).then(() => refetchResults())}
+            onAdd={async (data) => {
+              const result = await insert('results', data);
+              if (!result.success) throw new Error(result.error || 'Failed to add student');
+              setSaveStatus('Student added!');
+              await refetchResults();
+            }}
+            onUpdate={async (id, data) => {
+              const result = await update('results', id, data);
+              if (!result.success) throw new Error(result.error || 'Failed to update student');
+              setSaveStatus('Student updated!');
+              await refetchResults();
+            }}
+            onDelete={async (id) => {
+              const result = await remove('results', id);
+              if (!result.success) throw new Error(result.error || 'Failed to delete student');
+              setSaveStatus('Student deleted!');
+              await refetchResults();
+            }}
             loading={mutationLoading}
           />
         )}

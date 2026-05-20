@@ -7,7 +7,7 @@ import { dedupeResultsById } from '../lib/dedupeResults';
 const SCROLL_SPEED = 0.65;
 
 function HallOfFameCard({ result }) {
-  const displayRank = result.achievement || result.rank || 'Top Rank';
+  const displayRank = result.achievement || result.rank || result.score || 'Top Rank';
 
   return (
     <GlassCard className="flex min-w-[320px] max-w-[360px] flex-shrink-0 items-center gap-4 border-l-4 border-l-[#D90429] px-6 py-4">

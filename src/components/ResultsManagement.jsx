@@ -40,10 +40,13 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
   };
 
   const handleEdit = (result) => {
+    const rankText = result.rank || result.achievement || result.score || '';
     setFormData({
       ...result,
-      rank: result.rank || result.achievement || '',
+      rank: rankText,
+      achievement: rankText,
       section: result.section || 'hallOfFame',
+      photo: result.photo || result.image_url || '',
     });
     revokePreviewBlob();
     setImagePreview(result.photo ? buildB2DisplayUrl(result.photo) : null);
@@ -139,7 +142,8 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
       return;
     }
 
-    if (!formData.photo) {
+    const photo = formData.photo || formData.image_url || '';
+    if (!photo) {
       alert('Please upload a photo');
       return;
     }
@@ -152,21 +156,30 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
       return;
     }
 
-    const { rank, year: _year, id: _id, created_at: _ca, updated_at: _ua, ...rest } = formData;
+    const rankText = (formData.rank || formData.achievement || '').trim();
+    const { rank: _rank, year: _year, id: _id, created_at: _ca, updated_at: _ua, image_url: _img, score: _score, ...rest } =
+      formData;
     const payload = {
       name: rest.name?.trim(),
-      achievement: formData.achievement || rank || '',
-      college: rest.college || null,
-      exam: rest.exam || null,
+      achievement: rankText,
+      rank: rankText,
+      college: rest.college?.trim() || null,
+      exam: rest.exam?.trim() || null,
       section: rest.section || 'hallOfFame',
-      photo: rest.photo,
-      remark: rest.remark || null,
+      photo,
+      remark: rest.remark?.trim() || null,
     };
 
-    if (editingId) {
-      await onUpdate(editingId, payload);
-    } else {
-      await onAdd(payload);
+    try {
+      if (editingId) {
+        await onUpdate(editingId, payload);
+      } else {
+        await onAdd(payload);
+      }
+    } catch (err) {
+      console.error('Save failed:', err);
+      alert(err?.message || 'Could not save student. Check you are logged in as admin.');
+      return;
     }
 
     setShowForm(false);
@@ -276,7 +289,10 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
                   <input
                     type="text"
                     value={formData.rank || ''}
-                    onChange={(e) => setFormData({ ...formData, rank: e.target.value })}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFormData({ ...formData, rank: v, achievement: v });
+                    }}
                     placeholder="e.g., AIR 1, 99.5 Percentile"
                     className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:border-[#D90429] focus:outline-none"
                   />
