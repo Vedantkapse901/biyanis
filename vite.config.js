@@ -171,6 +171,15 @@ function apiDev() {
 }
 
 export default defineConfig({
-  plugins: [react(), apiDev()],
+  plugins: [react()],
   base: '/',
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path,
+      },
+    },
+  },
 });

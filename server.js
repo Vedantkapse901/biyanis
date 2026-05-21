@@ -261,37 +261,59 @@ app.get('/api/get-signed-url', async (req, res) => {
   }
 });
 
-// Download endpoint - proxy B2 files (PUBLIC bucket - no auth needed)
+// Download endpoint - proxy B2 files with authentication
 app.get('/api/download', async (req, res) => {
   try {
-    const filePath = req.query.path;
+    let filePath = req.query.path;
     if (!filePath) {
       return res.status(400).json({ error: 'Missing path parameter' });
     }
 
+    // Decode URL-encoded paths (handle double encoding)
+    filePath = decodeURIComponent(filePath);
+
     console.log('📥 Downloading from B2:', filePath);
 
-    // Construct direct B2 public URL (bucket is public, no auth needed!)
-    const fileUrl = `https://f005.backblazeb2.com/file/${B2_BUCKET_NAME}/${filePath}`;
+    // Authorize with B2
+    const auth = await authorizeB2();
 
-    console.log('🔗 B2 URL:', fileUrl);
+    // Get signed URL for the file (valid for 7 days)
+    const signedUrlData = await b2ApiCall('POST', 'b2_get_download_authorization', auth, {
+      bucketId: B2_BUCKET_ID,
+      fileNamePrefix: filePath,
+      validDurationInSeconds: 7 * 24 * 60 * 60, // 7 days
+    });
 
-    // Fetch file from B2 (no authorization needed for public buckets)
-    const fileResponse = await fetch(fileUrl);
+    // Construct signed URL with authorization
+    const signedUrl = `${auth.downloadUrl}/file/${encodeURIComponent(B2_BUCKET_NAME)}/${encodeURIComponent(filePath)}?Authorization=${encodeURIComponent(signedUrlData.authorizationToken)}`;
+
+    console.log('🔗 B2 Signed URL generated');
+
+    // Fetch file from B2 with authentication
+    const fileResponse = await fetch(signedUrl);
 
     if (!fileResponse.ok) {
-      console.error(`❌ B2 returned ${fileResponse.status}`);
+      console.error(`❌ B2 returned ${fileResponse.status}:`, await fileResponse.text());
       return res.status(fileResponse.status).json({ error: 'File not found' });
     }
 
     // Get file info
-    const contentType = fileResponse.headers.get('content-type') || 'application/pdf';
+    const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream';
     const contentLength = fileResponse.headers.get('content-length');
 
     // Set download headers
     const fileName = filePath.split('/').pop(); // Get filename from path
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Only set attachment for downloads, inline for images
+    const isInline = req.query.inline === '1';
+    if (isInline) {
+      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    } else {
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    }
+
     if (contentLength) {
       res.setHeader('Content-Length', contentLength);
     }
@@ -302,7 +324,7 @@ app.get('/api/download', async (req, res) => {
     const buffer = await fileResponse.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (error) {
-    console.error('❌ Download error:', error);
+    console.error('❌ Download error:', error.message);
     res.status(500).json({ error: error.message || 'Download failed' });
   }
 });

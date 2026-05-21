@@ -51,6 +51,16 @@ export function AdminPanel() {
     checkSession()
   }, [])
 
+  // Auto-dismiss save status message after 5 seconds
+  useEffect(() => {
+    if (saveStatus) {
+      const timer = setTimeout(() => {
+        setSaveStatus('')
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [saveStatus])
+
   // Fetch all data
   const { data: slides, refetch: refetchSlides } = useSlides()
   const { data: courses, refetch: refetchCourses } = useCourses()

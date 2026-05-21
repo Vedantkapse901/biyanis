@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { GlassCard } from './ui/GlassCard';
 import { ResolvedImage } from './ResolvedImage';
 import { dedupeResultsById } from '../lib/dedupeResults';
@@ -42,6 +43,8 @@ export function HallOfFameCarousel({ results = [], alwaysRoll = false }) {
   const reduceMotion = useReducedMotion();
   const containerRef = useRef(null);
   const trackRef = useRef(null);
+  const [manualOffset, setManualOffset] = useState(0);
+  const [isManualScrolling, setIsManualScrolling] = useState(false);
 
   const trackItems = useMemo(() => {
     if (unique.length === 0) return [];
@@ -51,6 +54,25 @@ export function HallOfFameCarousel({ results = [], alwaysRoll = false }) {
 
   const continuous =
     alwaysRoll && !reduceMotion && unique.length > 0 && trackItems.length > unique.length;
+
+  const scrollTrack = (direction) => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    // Scroll by one card width + gap (320px card + 24px gap)
+    const scrollAmount = 360;
+    const newOffset = manualOffset + (direction === 'left' ? -scrollAmount : scrollAmount);
+
+    setManualOffset(newOffset);
+    setIsManualScrolling(true);
+
+    // Resume auto-scroll after 3 seconds of no manual interaction
+    const timer = setTimeout(() => {
+      setIsManualScrolling(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  };
 
   useEffect(() => {
     if (!continuous) return;
@@ -64,18 +86,22 @@ export function HallOfFameCarousel({ results = [], alwaysRoll = false }) {
     const tick = () => {
       const cycleWidth = track.scrollWidth / 2;
       if (cycleWidth > 0) {
-        offset += SCROLL_SPEED;
-        if (offset >= cycleWidth) {
-          offset -= cycleWidth;
+        if (!isManualScrolling) {
+          offset += SCROLL_SPEED;
+          if (offset >= cycleWidth) {
+            offset -= cycleWidth;
+          }
         }
-        track.style.transform = `translate3d(${-offset}px, 0, 0)`;
+        const totalOffset = offset + manualOffset;
+        track.style.transform = `translate3d(${-totalOffset}px, 0, 0)`;
+        track.style.transition = isManualScrolling ? 'transform 0.5s ease-out' : 'none';
       }
       rafId = requestAnimationFrame(tick);
     };
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [trackItems, continuous]);
+  }, [trackItems, continuous, manualOffset, isManualScrolling]);
 
   if (unique.length === 0) return null;
 
@@ -108,6 +134,25 @@ export function HallOfFameCarousel({ results = [], alwaysRoll = false }) {
     <div ref={containerRef} className="relative w-full overflow-hidden">
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#F8F9FA] to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#F8F9FA] to-transparent" />
+
+      {/* Left Scroll Button */}
+      <button
+        onClick={() => scrollTrack('left')}
+        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-white/80 hover:bg-white shadow-md transition-all hover:shadow-lg"
+        aria-label="Scroll left"
+      >
+        <ChevronLeft className="h-6 w-6 text-[#0A0F2C]" />
+      </button>
+
+      {/* Right Scroll Button */}
+      <button
+        onClick={() => scrollTrack('right')}
+        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-white/80 hover:bg-white shadow-md transition-all hover:shadow-lg"
+        aria-label="Scroll right"
+      >
+        <ChevronRight className="h-6 w-6 text-[#0A0F2C]" />
+      </button>
+
       {track}
     </div>
   );
