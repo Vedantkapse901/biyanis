@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Trash2, Edit2, X, FileText, Upload, Loader } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
 import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage'
+import { buildB2PdfDownloadUrl, buildB2PdfViewUrl } from '../lib/b2MediaUrls'
 
 const EXAM_TYPES = [
   { id: 'jee', label: '🔬 JEE', color: 'bg-blue-100' },
@@ -75,10 +76,17 @@ export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDel
     try {
       setPdfUploadingId(materialId)
       const storagePath = buildStoragePath(`student-portal/${selectedExam}`, file.name)
-      const { url } = await uploadAdminFile({ storagePath, file, contentType: file.type })
+      const { storageRef, viewUrl } = await uploadAdminFile({
+        storagePath,
+        file,
+        contentType: file.type || 'application/pdf',
+      })
       const material = materials.find((m) => m.id === materialId)
       if (material) {
-        await onUpdate(materialId, { ...material, pdf_url: url })
+        await onUpdate(materialId, { ...material, pdf_url: storageRef })
+        if (viewUrl) {
+          alert(`PDF uploaded.\n\nView link:\n${viewUrl}`)
+        }
       }
     } catch (err) {
       console.error('PDF upload failed:', err)
@@ -181,16 +189,29 @@ export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDel
                             </div>
 
                             <div>
-                              <label className="block text-xs font-semibold mb-1">PDF URL / Drive Link</label>
+                              <label className="block text-xs font-semibold mb-1">PDF link</label>
                               <input
                                 type="text"
                                 value={material.pdf_url || ''}
                                 onChange={(e) =>
                                   handleUpdateMaterial(material.id, { ...material, pdf_url: e.target.value })
                                 }
-                                placeholder="Paste PDF URL or Google Drive link"
-                                className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                                placeholder="b2ref://… or paste Google Drive / external URL"
+                                className="w-full rounded border border-slate-300 px-2 py-1 font-mono text-xs"
                               />
+                              {material.pdf_url && buildB2PdfViewUrl(material.pdf_url) && (
+                                <p className="mt-1 text-xs text-slate-500 break-all">
+                                  View:{' '}
+                                  <a
+                                    href={buildB2PdfViewUrl(material.pdf_url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[#D90429] underline"
+                                  >
+                                    {buildB2PdfViewUrl(material.pdf_url)}
+                                  </a>
+                                </p>
+                              )}
                               <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded border border-dashed border-slate-300 px-2 py-2 text-xs font-semibold text-slate-600 hover:border-[#D90429]">
                                 {pdfUploadingId === material.id ? (
                                   <>
@@ -229,15 +250,23 @@ export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDel
                             {material.description && (
                               <p className="text-slate-600">{material.description}</p>
                             )}
-                            {material.pdf_url && (
-                              <a
-                                href={material.pdf_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[#D90429] hover:underline font-semibold"
-                              >
-                                📄 View PDF
-                              </a>
+                            {material.pdf_url && buildB2PdfViewUrl(material.pdf_url) && (
+                              <div className="flex flex-wrap gap-3">
+                                <a
+                                  href={buildB2PdfViewUrl(material.pdf_url)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[#D90429] hover:underline font-semibold"
+                                >
+                                  📄 View PDF
+                                </a>
+                                <a
+                                  href={buildB2PdfDownloadUrl(material.pdf_url)}
+                                  className="inline-flex items-center gap-1 text-slate-700 hover:underline font-semibold"
+                                >
+                                  ⬇️ Download
+                                </a>
+                              </div>
                             )}
                             <p className="text-xs text-slate-500">
                               Added: {new Date(material.uploaded_at).toLocaleDateString()}

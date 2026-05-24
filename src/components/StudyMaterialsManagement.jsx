@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Upload, Trash2, Plus, Download } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
-import { uploadAdminFile } from '../lib/mediaStorage'
+import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage'
+import { buildB2PdfDownloadUrl, buildB2PdfViewUrl } from '../lib/b2MediaUrls'
 
 const COURSES = [
   { id: 'JEE', name: 'JEE Main & Advanced' },
@@ -19,6 +20,7 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
   const [addingNew, setAddingNew] = useState(false)
   const [uploadProgress, setUploadProgress] = useState('')
   const [uploadLoading, setUploadLoading] = useState(false)
+  const [lastPdfLinks, setLastPdfLinks] = useState(null)
 
   const courseName = COURSES.find(c => c.id === selectedCourse)?.name
   const filteredMaterials = materials.filter(
@@ -39,30 +41,32 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
     setUploadLoading(true)
 
     try {
-      const timestamp = Date.now()
-      const fileName = `${timestamp}_${editingFile.name}`
-      const storagePath = `study-materials/${selectedCourse}/class-${selectedClass}/${fileName}`
+      const storagePath = buildStoragePath(
+        `study-materials/${selectedCourse}/class-${selectedClass}`,
+        editingFile.name
+      )
 
-      const { url } = await uploadAdminFile({
+      const { storageRef, viewUrl, downloadUrl } = await uploadAdminFile({
         storagePath,
         file: editingFile,
         contentType: editingFile.type || 'application/pdf',
       })
 
-      if (!url) {
-        alert('❌ Upload failed: Could not get public URL')
+      if (!storageRef) {
+        alert('❌ Upload failed: Could not get file reference')
         setUploadProgress('')
         setUploadLoading(false)
         return
       }
 
+      setLastPdfLinks({ viewUrl, downloadUrl, storageRef })
       setUploadProgress('✅ Upload successful! Saving to database...')
 
       const newMaterial = {
         title: editingTitle,
         course: selectedCourse,
         class_level: selectedClass,
-        pdf_url: url,
+        pdf_url: storageRef,
         file_size: editingFile.size,
         display_order: filteredMaterials.length,
       }
@@ -202,6 +206,24 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
                 </div>
               )}
 
+              {lastPdfLinks && (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-900 space-y-2">
+                  <p className="font-bold">PDF links (saved to database as secure reference):</p>
+                  <p>
+                    <span className="font-semibold">View: </span>
+                    <a href={lastPdfLinks.viewUrl} target="_blank" rel="noreferrer" className="break-all underline">
+                      {lastPdfLinks.viewUrl}
+                    </a>
+                  </p>
+                  <p>
+                    <span className="font-semibold">Download: </span>
+                    <a href={lastPdfLinks.downloadUrl} className="break-all underline">
+                      {lastPdfLinks.downloadUrl}
+                    </a>
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button
                   onClick={handleAddMaterial}
@@ -248,11 +270,24 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
                     </p>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     {material.pdf_url && (
-                      <div className="flex-1 rounded-lg bg-blue-50 px-3 py-2 text-center text-xs font-semibold text-blue-600">
-                        📄 {material.pdf_url.split('/').pop()}
-                      </div>
+                      <>
+                        <a
+                          href={buildB2PdfViewUrl(material.pdf_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex-1 min-w-[120px] rounded-lg bg-blue-50 px-3 py-2 text-center text-xs font-semibold text-blue-600 hover:bg-blue-100"
+                        >
+                          📄 View PDF
+                        </a>
+                        <a
+                          href={buildB2PdfDownloadUrl(material.pdf_url)}
+                          className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                        >
+                          ⬇️ Download
+                        </a>
+                      </>
                     )}
                     <button
                       onClick={() => onDelete(material.id)}
@@ -279,7 +314,7 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
       {/* Info Box */}
       <div className="rounded-lg bg-green-50 border border-green-200 p-4">
         <p className="text-sm text-green-800">
-          <strong>💡 How it works:</strong> Upload PDFs for each course and class. Files go to Supabase Storage (direct from the browser, like EYE10) and save to the database. Students only see materials for their course.
+          <strong>💡 How it works:</strong> PDFs upload to B2 and save as a secure reference. Students get full website links via <code>/api/download</code> (view in tab + download) — not direct B2 URLs.
         </p>
       </div>
 

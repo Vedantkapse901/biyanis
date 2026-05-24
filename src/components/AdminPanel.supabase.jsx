@@ -297,10 +297,10 @@ export function AdminPanel() {
         throw new Error('Failed to get public URL from B2')
       }
 
-      // Insert slide into Supabase
+      // Store B2 ref; frontend resolves to /api/download proxy URL
       const newSlide = {
         type: formData.type,
-        url: b2Result.publicUrl,
+        url: b2Result.storageRef || b2Result.publicUrl,
         cta: formData.cta,
         cta_url: formData.ctaUrl,
         display_order: draftSlides.length,

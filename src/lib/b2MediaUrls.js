@@ -54,16 +54,70 @@ export function extractB2ObjectKey(stored) {
   }
 }
 
+function siteOrigin() {
+  if (typeof window !== 'undefined') return window.location.origin;
+  const site = String(import.meta.env.VITE_SITE_URL || '').replace(/\/$/, '');
+  return site || '';
+}
+
+/** Build same-origin /api/download proxy URL (private B2 bucket). */
+export function buildB2ProxyUrl(stored, { inline = false, download = false } = {}) {
+  const key = extractB2ObjectKey(stored);
+  if (!key) return '';
+
+  const params = new URLSearchParams({ path: key });
+  if (download) params.set('download', '1');
+  else if (inline) params.set('inline', '1');
+
+  const origin = siteOrigin();
+  const path = `/api/download?${params.toString()}`;
+  return origin ? `${origin}${path}` : path;
+}
+
 /** Build same-origin proxy URL for <img src> (works for private B2 buckets). */
 export function buildB2DisplayUrl(stored) {
   const key = extractB2ObjectKey(stored);
   if (!key) return String(stored || '');
+  return buildB2ProxyUrl(stored, { inline: true });
+}
 
-  const params = new URLSearchParams({ path: key, inline: '1' });
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/api/download?${params.toString()}`;
-  }
-  return `/api/download?${params.toString()}`;
+/** Full site URL to view PDF in browser (new tab). */
+export function buildB2PdfViewUrl(stored) {
+  const key = extractB2ObjectKey(stored);
+  if (key) return buildB2ProxyUrl(stored, { inline: true });
+  const s = String(stored || '').trim();
+  if (/^https?:\/\//i.test(s) && !s.includes('backblazeb2.com')) return s;
+  return '';
+}
+
+/** Full site URL that forces file download via proxy. */
+export function buildB2PdfDownloadUrl(stored) {
+  const key = extractB2ObjectKey(stored);
+  if (key) return buildB2ProxyUrl(stored, { download: true });
+  return buildB2PdfViewUrl(stored);
+}
+
+/** Open PDF in a new tab and trigger download (B2 proxy or external link). */
+export function openPdfViewAndDownload(stored, title = 'document') {
+  const viewUrl = buildB2PdfViewUrl(stored);
+  if (!viewUrl) return false;
+
+  window.open(viewUrl, '_blank', 'noopener,noreferrer');
+
+  const downloadUrl = buildB2PdfDownloadUrl(stored) || viewUrl;
+  const safeName = String(title || 'document')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_')
+    .slice(0, 80);
+  const fileName = safeName.toLowerCase().endsWith('.pdf') ? safeName : `${safeName}.pdf`;
+
+  const anchor = document.createElement('a');
+  anchor.href = downloadUrl;
+  anchor.download = fileName;
+  anchor.rel = 'noopener';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  return true;
 }
 
 /** Cached display URL resolver (EYE10 pattern). */

@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { Lock, LogOut, Plus, Trash2, Bot, AlertTriangle, Save, HardDrive } from 'lucide-react';
 import { AppContext } from '../context/AppContext';
 import { defaultData } from '../data/defaultData';
-import { uploadToB2, deleteFromB2, listB2Files } from '../lib/mediaStorage';
+import { uploadToB2 } from '../lib/mediaStorage';
+import { buildB2PdfViewUrl } from '../lib/b2MediaUrls';
 import { GlassCard } from './ui/GlassCard';
 import { ThemeButton } from './ui/ThemeButton';
 import { StorageManagement } from './StorageManagement';
@@ -149,7 +150,7 @@ export function AdminPanel() {
       // Upload to B2
       const uploadResult = await uploadToB2(file, folder);
 
-      updateArrayItem(tab, id, field, uploadResult.publicUrl);
+      updateArrayItem(tab, id, field, uploadResult.storageRef || uploadResult.publicUrl);
       if (tab === 'studentPortal') {
         updateArrayItem(tab, id, 'fileType', file.type.includes('pdf') ? 'PDF' : 'Document');
       }
@@ -421,12 +422,12 @@ export function AdminPanel() {
                         {item.documentUrl ? (
                           <div className="mt-2 flex items-center justify-between gap-3">
                             <a
-                              href={item.documentUrl}
+                              href={buildB2PdfViewUrl(item.documentUrl) || item.documentUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-sm font-bold text-[#D90429] hover:underline"
                             >
-                              Open
+                              Open PDF
                             </a>
                             <span className="text-xs font-semibold text-slate-500">Uploaded</span>
                           </div>

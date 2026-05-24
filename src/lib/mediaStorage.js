@@ -3,7 +3,7 @@
  * Browser → /api/upload-to-b2 → B2. Supabase is only used for admin login token.
  */
 import { supabase } from './supabase';
-import { buildB2DisplayUrl, toB2StorageRef } from './b2MediaUrls';
+import { buildB2DisplayUrl, buildB2PdfDownloadUrl, buildB2PdfViewUrl, toB2StorageRef } from './b2MediaUrls';
 
 function resolveApiBase() {
   const raw = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -77,7 +77,13 @@ export async function uploadAdminFile({ storagePath, file, contentType }) {
 
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(result.error || `Upload failed (${response.status})`);
+    const message = result.error || `Upload failed (${response.status})`;
+    if (response.status === 500 && message === `Upload failed (${response.status})`) {
+      throw new Error(
+        `${message}. Ensure B2 + SUPABASE_SERVICE_ROLE_KEY are in .env and run: npm run dev`
+      );
+    }
+    throw new Error(message);
   }
 
   const key = result.fileName || storagePath;
@@ -88,6 +94,8 @@ export async function uploadAdminFile({ storagePath, file, contentType }) {
 
   return {
     url: displayUrl,
+    viewUrl: buildB2PdfViewUrl(storageRef),
+    downloadUrl: buildB2PdfDownloadUrl(storageRef),
     storageRef,
     storagePath: key,
     fileName: result.fileName,

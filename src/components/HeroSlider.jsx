@@ -2,6 +2,14 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AppContext } from '../context/AppContext';
+import { buildB2DisplayUrl } from '../lib/b2MediaUrls';
+import { getSlideCtaText, getSlideCtaUrl } from '../lib/slideHelpers';
+
+function slideMediaSrc(slide) {
+  const raw = String(slide?.url || '').trim();
+  if (!raw) return '';
+  return buildB2DisplayUrl(raw);
+}
 
 export function HeroSlider() {
   const { data } = useContext(AppContext);
@@ -39,27 +47,35 @@ export function HeroSlider() {
   if (!slides.length) return null;
 
   const activeSlide = slides[current] || slides[0];
+  const mediaSrc = slideMediaSrc(activeSlide);
+  const ctaText = getSlideCtaText(activeSlide);
+  const ctaUrl = getSlideCtaUrl(activeSlide);
 
   return (
     <div className="relative mt-20 w-full">
       <div className="relative w-full">
-        {activeSlide.type === 'video' ? (
+        {!mediaSrc ? (
+          <div className="flex h-48 w-full items-center justify-center bg-slate-200 text-slate-500">
+            Slide media unavailable
+          </div>
+        ) : activeSlide.type === 'video' ? (
           <motion.video
-            key={activeSlide.url || current}
-            src={activeSlide.url}
+            key={mediaSrc}
+            src={mediaSrc}
             className="block h-auto w-full max-w-full"
             autoPlay
             muted
             loop
             playsInline
+            preload="metadata"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           />
         ) : (
           <motion.img
-            key={activeSlide.url || current}
-            src={activeSlide.url}
+            key={mediaSrc}
+            src={mediaSrc}
             alt={activeSlide.headline || 'Banner'}
             className="block h-auto w-full max-w-full"
             initial={{ opacity: 0 }}
@@ -68,13 +84,13 @@ export function HeroSlider() {
           />
         )}
 
-        {activeSlide.cta && activeSlide.cta_url && (
+        {ctaText && ctaUrl && (
           <div className="absolute bottom-8 left-0 right-0 z-30 flex justify-center md:bottom-12">
             <a
-              href={activeSlide.cta_url}
+              href={ctaUrl}
               className="rounded-lg bg-[#D90429] px-8 py-3 font-bold text-white shadow-lg transition-all hover:bg-[#b00320]"
             >
-              {activeSlide.cta}
+              {ctaText}
             </a>
           </div>
         )}

@@ -1,6 +1,10 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 function readDotEnvValue(key) {
   try {
@@ -71,11 +75,11 @@ function patchRes(res) {
 }
 
 const API_ROUTES = {
-  '/api/download': './api/download.js',
-  '/api/upload-to-b2': './api/upload-to-b2.js',
-  '/api/get-signed-url': './api/get-signed-url.js',
-  '/api/health': './api/health.js',
-  '/api/admin-results': './api/admin-results.js',
+  '/api/download': path.join(projectRoot, 'api/download.js'),
+  '/api/upload-to-b2': path.join(projectRoot, 'api/upload-to-b2.js'),
+  '/api/get-signed-url': path.join(projectRoot, 'api/get-signed-url.js'),
+  '/api/health': path.join(projectRoot, 'api/health.js'),
+  '/api/admin-results': path.join(projectRoot, 'api/admin-results.js'),
 };
 
 /** Local dev: Vercel-style /api handlers without a separate Node server */
@@ -141,13 +145,13 @@ function apiDev() {
             }
           }
         } else {
-          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
           if (req.method === 'OPTIONS') {
             res.statusCode = 204;
             res.end();
             return;
           }
-          if (req.method !== 'GET') {
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
             res.statusCode = 405;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ error: 'Method not allowed' }));
@@ -157,7 +161,8 @@ function apiDev() {
 
         try {
           req.query = Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
-          const { default: handler } = await import(modulePath);
+          const moduleUrl = pathToFileURL(modulePath).href;
+          const { default: handler } = await import(moduleUrl);
           patchRes(res);
           await handler(req, res);
         } catch (e) {
@@ -171,15 +176,6 @@ function apiDev() {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), apiDev()],
   base: '/',
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        rewrite: (path) => path,
-      },
-    },
-  },
 });

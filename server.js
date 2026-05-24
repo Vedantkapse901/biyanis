@@ -23,10 +23,12 @@ let b2AuthCache = null;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '100mb' }));
 
-// Special handler for binary uploads BEFORE other middleware
-app.post('/api/upload-to-b2-fast', express.raw({ type: '*/*', limit: '500mb' }), async (req, res) => {
+// Special handler for binary uploads BEFORE express.json()
+app.post(
+  ['/api/upload-to-b2', '/api/upload-to-b2-fast'],
+  express.raw({ type: '*/*', limit: '500mb' }),
+  async (req, res) => {
   try {
     console.log('🚀 Fast upload request received');
 
@@ -88,6 +90,10 @@ app.post('/api/upload-to-b2-fast', express.raw({ type: '*/*', limit: '500mb' }),
     // Calculate SHA1
     const sha1 = crypto.createHash('sha1').update(fileBuffer).digest('hex');
     const fullFileName = `${folder}${fileName}`;
+    const encodedFileName = fullFileName
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
 
     // Upload to B2
     console.log('📤 Uploading to B2...');
@@ -95,7 +101,7 @@ app.post('/api/upload-to-b2-fast', express.raw({ type: '*/*', limit: '500mb' }),
       method: 'POST',
       headers: {
         Authorization: uploadUrlData.authorizationToken,
-        'X-Bz-File-Name': fullFileName,
+        'X-Bz-File-Name': encodedFileName,
         'Content-Type': contentType,
         'X-Bz-Content-Sha1': sha1,
       },
@@ -119,6 +125,8 @@ app.post('/api/upload-to-b2-fast', express.raw({ type: '*/*', limit: '500mb' }),
       fileName: uploadResult.fileName,
       fileId: uploadResult.fileId,
       publicUrl,
+      b2Url: publicUrl,
+      downloadUrl: `/api/download?path=${encodeURIComponent(uploadResult.fileName)}`,
     });
   } catch (error) {
     console.error('❌ Fast upload error:', error.message);
@@ -128,6 +136,7 @@ app.post('/api/upload-to-b2-fast', express.raw({ type: '*/*', limit: '500mb' }),
   }
 });
 
+app.use(express.json({ limit: '100mb' }));
 app.use(fileUpload({ limits: { fileSize: 500 * 1024 * 1024 } })); // 500MB max
 
 // Verify admin token
@@ -261,285 +270,20 @@ app.get('/api/get-signed-url', async (req, res) => {
   }
 });
 
-// Download endpoint - proxy B2 files with authentication
+// Download endpoint - proxy B2 files (Range support for video playback)
 app.get('/api/download', async (req, res) => {
   try {
-    let filePath = req.query.path;
-    if (!filePath) {
-      return res.status(400).json({ error: 'Missing path parameter' });
-    }
-
-    // Decode URL-encoded paths (handle double encoding)
-    filePath = decodeURIComponent(filePath);
-
-    console.log('📥 Downloading from B2:', filePath);
-
-    // Authorize with B2
-    const auth = await authorizeB2();
-
-    // Get signed URL for the file (valid for 7 days)
-    const signedUrlData = await b2ApiCall('POST', 'b2_get_download_authorization', auth, {
-      bucketId: B2_BUCKET_ID,
-      fileNamePrefix: filePath,
-      validDurationInSeconds: 7 * 24 * 60 * 60, // 7 days
-    });
-
-    // Construct signed URL with authorization
-    const signedUrl = `${auth.downloadUrl}/file/${encodeURIComponent(B2_BUCKET_NAME)}/${encodeURIComponent(filePath)}?Authorization=${encodeURIComponent(signedUrlData.authorizationToken)}`;
-
-    console.log('🔗 B2 Signed URL generated');
-
-    // Fetch file from B2 with authentication
-    const fileResponse = await fetch(signedUrl);
-
-    if (!fileResponse.ok) {
-      console.error(`❌ B2 returned ${fileResponse.status}:`, await fileResponse.text());
-      return res.status(fileResponse.status).json({ error: 'File not found' });
-    }
-
-    // Get file info
-    const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream';
-    const contentLength = fileResponse.headers.get('content-length');
-
-    // Set download headers
-    const fileName = filePath.split('/').pop(); // Get filename from path
-    res.setHeader('Content-Type', contentType);
+    const { proxyB2Download } = await import('./api/lib/b2DownloadCore.js');
     res.setHeader('Access-Control-Allow-Origin', '*');
-
-    // Only set attachment for downloads, inline for images
-    const isInline = req.query.inline === '1';
-    if (isInline) {
-      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-    } else {
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    }
-
-    if (contentLength) {
-      res.setHeader('Content-Length', contentLength);
-    }
-
-    console.log('✅ Sending file:', fileName);
-
-    // Stream file to client
-    const buffer = await fileResponse.arrayBuffer();
-    res.send(Buffer.from(buffer));
+    await proxyB2Download(req, res);
   } catch (error) {
     console.error('❌ Download error:', error.message);
-    res.status(500).json({ error: error.message || 'Download failed' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message || 'Download failed' });
+    }
   }
 });
 
-// Upload endpoint
-app.post('/api/upload-to-b2', async (req, res) => {
-  try {
-    console.log('📤 Upload request received');
-
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-
-    if (!token) {
-      console.error('✗ No auth token provided');
-      return res.status(401).json({ error: 'Missing authorization token' });
-    }
-
-    // Verify admin
-    console.log('🔑 Verifying admin token...');
-    const authResult = await verifyAdminToken(token);
-    if (!authResult.ok) {
-      console.error('✗ Auth verification failed:', authResult.reason);
-      return res.status(authResult.reason === 'Invalid token' ? 401 : 403).json({
-        error: authResult.reason,
-      });
-    }
-    console.log('✓ Admin verified');
-
-    const { file, folder = 'slides/', fileName: originalFileName } = req.body;
-
-    if (!file) {
-      console.error('✗ No file data provided');
-      return res.status(400).json({ error: 'No file provided' });
-    }
-
-    console.log(`📁 Processing file: ${originalFileName}, folder: ${folder}`);
-
-    // Decode base64 file
-    const fileBuffer = Buffer.from(file, 'base64');
-    const contentType = req.body.contentType || 'application/octet-stream';
-    console.log(`📦 File size: ${fileBuffer.length} bytes, type: ${contentType}`);
-
-    // Generate filename
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    // Sanitize filename: remove non-ASCII characters and replace spaces
-    const sanitizedFileName = originalFileName
-      .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII characters
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/[^a-zA-Z0-9._-]/g, ''); // Keep only safe characters
-    const fullFileName = `${folder}${timestamp}-${randomStr}-${sanitizedFileName}`;
-    console.log(`📝 Generated filename: ${fullFileName}`);
-
-    // Authorize with B2
-    console.log('🔐 Authorizing B2...');
-    const auth = await authorizeB2();
-
-    // Get upload URL
-    console.log('🌐 Getting B2 upload URL...');
-    const uploadUrlData = await b2ApiCall('POST', 'b2_get_upload_url', auth, {
-      bucketId: B2_BUCKET_ID,
-    });
-    console.log('✓ Got upload URL from B2');
-
-    // Calculate SHA1
-    const sha1 = crypto.createHash('sha1').update(fileBuffer).digest('hex');
-    console.log(`✓ SHA1 calculated: ${sha1.substring(0, 8)}...`);
-
-    // Upload to B2
-    console.log('📤 Uploading to B2...');
-    console.log('   Upload URL:', uploadUrlData.uploadUrl);
-    console.log('   Headers:', {
-      'X-Bz-File-Name': encodeURIComponent(fullFileName),
-      'Content-Type': contentType,
-      'X-Bz-Content-Sha1': sha1.substring(0, 8) + '...',
-    });
-
-    let uploadResponse;
-    try {
-      uploadResponse = await fetch(uploadUrlData.uploadUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: uploadUrlData.authorizationToken,
-          'X-Bz-File-Name': fullFileName,
-          'Content-Type': contentType,
-          'X-Bz-Content-Sha1': sha1,
-        },
-        body: fileBuffer,
-      });
-    } catch (fetchError) {
-      console.error('✗ Fetch error during B2 upload:', fetchError.message);
-      console.error('   Cause:', fetchError.cause);
-      throw fetchError;
-    }
-
-    console.log('   Response status:', uploadResponse.status);
-    const uploadResult = await uploadResponse.json();
-
-    if (!uploadResponse.ok) {
-      console.error('✗ B2 upload failed:', uploadResult);
-      throw new Error(uploadResult.message || `Upload failed (${uploadResponse.status})`);
-    }
-
-    console.log('✓ File uploaded successfully to B2');
-
-    // Return full backend URL for file download (not relative)
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
-    const downloadUrl = `${backendUrl}/api/download?path=${encodeURIComponent(fullFileName)}`;
-
-    res.json({
-      success: true,
-      fileName: uploadResult.fileName,
-      fileId: uploadResult.fileId,
-      filePath: fullFileName,
-      downloadUrl,
-      contentSha1: uploadResult.contentSha1,
-    });
-  } catch (error) {
-    console.error('❌ Upload error:', error.message);
-    console.error('Stack:', error.stack);
-    res.status(500).json({ error: error.message || 'Upload failed' });
-  }
-});
-
-// Fast Upload endpoint (Binary data - no FormData!)
-app.post('/api/upload-to-b2-fast', async (req, res) => {
-  try {
-    console.log('🚀 Fast upload request received');
-
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-
-    if (!token) {
-      console.error('✗ No auth token provided');
-      return res.status(401).json({ error: 'Missing authorization token' });
-    }
-
-    // Verify admin
-    console.log('🔑 Verifying admin token...');
-    const authResult = await verifyAdminToken(token);
-    if (!authResult.ok) {
-      console.error('✗ Auth verification failed:', authResult.reason);
-      return res.status(authResult.reason === 'Invalid token' ? 401 : 403).json({
-        error: authResult.reason,
-      });
-    }
-    console.log('✓ Admin verified');
-
-    // Get file info from headers
-    const fileName = req.headers['x-file-name'];
-    const folder = req.headers['x-folder'] || 'study-materials/';
-    const contentType = req.headers['x-content-type'] || 'application/octet-stream';
-    const fileBuffer = req.body; // Raw binary data
-
-    if (!fileName || !fileBuffer) {
-      console.error('✗ Missing file data or name');
-      return res.status(400).json({ error: 'Missing file data' });
-    }
-    const fullFileName = `${folder}${fileName}`;
-
-    console.log(`📄 File: ${fileName} (${(fileBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
-
-    // Authorize with B2
-    console.log('🔐 Authorizing with B2...');
-    const auth = await authorizeB2();
-
-    // Get upload URL
-    console.log('🌐 Getting upload URL from B2...');
-    const uploadUrlData = await b2ApiCall('POST', 'b2_get_upload_url', auth, {
-      bucketId: B2_BUCKET_ID,
-    });
-
-    // Calculate SHA1
-    const sha1 = crypto.createHash('sha1').update(fileBuffer).digest('hex');
-
-    // Upload to B2
-    console.log('📤 Uploading to B2...');
-    const uploadResponse = await fetch(uploadUrlData.uploadUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: uploadUrlData.authorizationToken,
-        'X-Bz-File-Name': fullFileName,
-        'Content-Type': contentType,
-        'X-Bz-Content-Sha1': sha1,
-      },
-      body: fileBuffer,
-    });
-
-    const uploadResult = await uploadResponse.json();
-
-    if (!uploadResponse.ok) {
-      console.error('✗ B2 upload failed:', uploadResult);
-      throw new Error(uploadResult.message || `Upload failed (${uploadResponse.status})`);
-    }
-
-    console.log('✓ File uploaded successfully to B2');
-
-    // Return public URL directly
-    const publicUrl = `${auth.downloadUrl}/file/${encodeURIComponent(B2_BUCKET_NAME)}/${encodeURIComponent(fullFileName)}`;
-
-    res.json({
-      success: true,
-      fileName: uploadResult.fileName,
-      fileId: uploadResult.fileId,
-      publicUrl,
-    });
-  } catch (error) {
-    console.error('❌ Fast upload error:', error.message);
-    console.error('Stack:', error.stack);
-    res.status(500).json({
-      error: error.message || 'Upload failed',
-      details: error.stack
-    });
-  }
-});
 
 // Health check
 app.get('/health', (req, res) => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Download, LogOut, Loader } from 'lucide-react'
+import { Download, LogOut, Loader, ExternalLink } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
+import { buildB2PdfViewUrl, openPdfViewAndDownload } from '../lib/b2MediaUrls'
 
 const COURSES = [
   { id: 'JEE', name: 'JEE Main & Advanced', color: 'bg-blue-100 border-blue-300' },
@@ -8,85 +9,44 @@ const COURSES = [
   { id: 'MHT-CET', name: 'MHT-CET', color: 'bg-purple-100 border-purple-300' },
 ]
 
-const CLASS_LEVELS = [11, 12]
-
-const API_URL = import.meta.env.VITE_API_URL || ''
-
 export function StudentDashboard({ student, materials, onLogout }) {
   const [filteredMaterials, setFilteredMaterials] = useState([])
-  const [signingUrl, setSigningUrl] = useState(null) // Track which material is getting signed URL
-  const [signedUrls, setSignedUrls] = useState({}) // Cache signed URLs by material ID
+  const [downloadingId, setDownloadingId] = useState(null)
 
-  // Filter materials based on student's course (both class 11 and 12 available)
   useEffect(() => {
     if (student && materials) {
-      const filtered = materials.filter(
-        (m) => m.course === student.course // Show materials for both class 11 and 12
-      )
+      const filtered = materials.filter((m) => m.course === student.course)
       setFilteredMaterials(filtered)
     }
   }, [student, materials])
 
-  // Get signed URL for downloading PDF
   const handleDownload = async (material) => {
+    if (!material?.pdf_url) {
+      alert('PDF not available for this material.')
+      return
+    }
+
     try {
-      // Check if we already have a cached signed URL
-      if (signedUrls[material.id]) {
-        window.location.href = signedUrls[material.id]
-        return
+      setDownloadingId(material.id)
+      const ok = openPdfViewAndDownload(material.pdf_url, material.title)
+      if (!ok) {
+        throw new Error('Could not open PDF link')
       }
-
-      setSigningUrl(material.id)
-
-      let filePath = material.pdf_url
-
-      // Supabase Storage (or any full public HTTPS URL) — open directly, no backend
-      if (filePath && /^https?:\/\//i.test(filePath)) {
-        window.location.href = filePath
-        setSigningUrl(null)
-        return
-      }
-
-      // Legacy B2 paths
-      if (filePath.includes('/file/Biyanisclasseswebsite/')) {
-        // Full B2 URL format: https://f005.backblazeb2.com/file/Biyanisclasseswebsite/study-materials/...
-        filePath = filePath.split('/file/Biyanisclasseswebsite/')[1]
-      } else if (filePath.includes('?path=')) {
-        // Proxy URL format: /api/download?path=...
-        filePath = decodeURIComponent(filePath.split('path=')[1])
-      }
-
-      console.log('📥 Requesting signed URL for:', filePath)
-
-      // Call backend to get signed URL
-      const response = await fetch(`${API_URL}/api/get-signed-url?path=${encodeURIComponent(filePath)}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to generate signed URL')
-      }
-
-      const data = await response.json()
-
-      if (!data.signedUrl) {
-        throw new Error('No signed URL received')
-      }
-
-      // Cache the signed URL
-      setSignedUrls((prev) => ({
-        ...prev,
-        [material.id]: data.signedUrl,
-      }))
-
-      console.log('✅ Signed URL received, downloading...')
-
-      // Trigger download
-      window.location.href = data.signedUrl
     } catch (error) {
-      console.error('❌ Download error:', error)
+      console.error('PDF download error:', error)
       alert('Failed to download PDF. Please try again.')
     } finally {
-      setSigningUrl(null)
+      setDownloadingId(null)
     }
+  }
+
+  const handleView = (material) => {
+    const viewUrl = buildB2PdfViewUrl(material.pdf_url)
+    if (!viewUrl) {
+      alert('PDF not available for this material.')
+      return
+    }
+    window.open(viewUrl, '_blank', 'noopener,noreferrer')
   }
 
   if (!student) {
@@ -98,7 +58,6 @@ export function StudentDashboard({ student, materials, onLogout }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 px-4 pt-32 pb-12">
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
         <div className="mb-8 flex items-center justify-between rounded-lg bg-white p-6 shadow-md">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Welcome, {student.name}!</h1>
@@ -115,7 +74,6 @@ export function StudentDashboard({ student, materials, onLogout }) {
           </button>
         </div>
 
-        {/* Course Info Card */}
         <GlassCard className={`mb-8 border-2 p-6 ${studentCourse?.color}`}>
           <div className="flex items-center justify-between">
             <div>
@@ -130,7 +88,6 @@ export function StudentDashboard({ student, materials, onLogout }) {
           </div>
         </GlassCard>
 
-        {/* Study Materials */}
         <div>
           <h3 className="mb-6 text-2xl font-bold text-slate-900">Your Study Materials</h3>
 
@@ -146,26 +103,39 @@ export function StudentDashboard({ student, materials, onLogout }) {
                       </span>
                     </div>
                     <p className="text-sm text-slate-600">
-                      {material.file_size ? `${(material.file_size / 1024 / 1024).toFixed(2)} MB` : 'PDF'}
+                      {material.file_size
+                        ? `${(material.file_size / 1024 / 1024).toFixed(2)} MB`
+                        : 'PDF'}
                     </p>
 
-                    <button
-                      onClick={() => handleDownload(material)}
-                      disabled={signingUrl === material.id}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#D90429] px-4 py-2 font-semibold text-white hover:bg-[#b00320] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {signingUrl === material.id ? (
-                        <>
-                          <Loader className="h-4 w-4 animate-spin" />
-                          Preparing...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4" />
-                          Download PDF
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleView(material)}
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#D90429] px-4 py-2 text-sm font-semibold text-[#D90429] hover:bg-[#D90429]/5 transition-colors"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        View PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(material)}
+                        disabled={downloadingId === material.id}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#D90429] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b00320] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {downloadingId === material.id ? (
+                          <>
+                            <Loader className="h-4 w-4 animate-spin" />
+                            Opening…
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4" />
+                            Download PDF
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </GlassCard>
               ))}
@@ -180,12 +150,11 @@ export function StudentDashboard({ student, materials, onLogout }) {
           )}
         </div>
 
-        {/* Info Box */}
         <div className="mt-8 rounded-lg bg-blue-50 border border-blue-200 p-4">
           <p className="text-sm text-blue-800">
-            <strong>📚 About Your Portal:</strong> You can download study materials specific to your course
-            and class level. All PDFs are provided by your teachers. Contact your instructor if you need
-            additional materials.
+            <strong>📚 About Your Portal:</strong> View opens the PDF in a new tab. Download opens the PDF
+            and saves a copy to your device — files are served securely through our website, not direct
+            cloud links.
           </p>
         </div>
       </div>
