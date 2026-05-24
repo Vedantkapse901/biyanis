@@ -23,7 +23,12 @@ export function SmartReviewModal({ isOpen, onClose }) {
     const prompt = `Generate a genuine Google review (2-3 sentences) for BJNP (IIT JEE, NEET, CET coaching). User: ${name}. Rating: ${rating}/5. Note: "${note || 'Good coaching'}". First person, authentic, no quotes.`;
     const systemPrompt = 'You are an expert at writing realistic local business reviews.';
 
-    const result = await generateAIContent(prompt, systemPrompt, 1024, data.settings.geminiApiKey);
+    const result = await generateAIContent(
+      prompt,
+      systemPrompt,
+      1024,
+      data.settings.geminiApiKey || data.settings.gemini_api_key
+    );
     setGeneratedReview(result);
     setIsLoading(false);
   };

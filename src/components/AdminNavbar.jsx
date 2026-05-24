@@ -14,6 +14,7 @@ export function AdminNavbar({ activeTab, onTabChange, onLogout }) {
     { id: 'studentPortal', label: 'Study Materials', icon: '📄' },
     { id: 'studentPortalStudents', label: 'Manage Students', icon: '👥' },
     { id: 'colorChange', label: 'Color Change', icon: '🎨' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
   const handleTabChange = (tabId) => {

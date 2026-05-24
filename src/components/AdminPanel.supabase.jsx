@@ -14,6 +14,7 @@ import { BranchesManagement } from './BranchesManagement'
 import { CoursesManagement } from './CoursesManagement'
 import { GalleryManagement } from './GalleryManagement'
 import { ColorChangePanel } from './ColorChangePanel'
+import { SettingsPanelEditor } from './SettingsPanelEditor'
 import { StudyMaterialsManagement } from './StudyMaterialsManagement'
 import { uploadToB2 } from '../lib/mediaStorage'
 import { friendlyError, isErrorStatus, userMessages } from '../lib/userMessages'
@@ -638,6 +639,10 @@ export function AdminPanel() {
         {/* Color Change Tab */}
         {activeTab === 'colorChange' && (
           <ColorChangePanel />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsPanelEditor />
         )}
 
         {/* Gallery Tab */}

@@ -1,9 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { Save, AlertCircle, Check } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
+import { AppContext } from '../context/AppContext'
 import { useSettings, useSupabaseMutation } from '../hooks/useSupabaseData'
 
+const SETTINGS_FIELDS = [
+  'tagline',
+  'whatsapp',
+  'review_link',
+  'gemini_api_key',
+  'made_by',
+  'vedant_designation',
+  'vedant_phone',
+  'vedant_email',
+  'bhushan_designation',
+  'bhushan_phone',
+  'bhushan_email',
+]
+
 export function SettingsPanelEditor() {
+  const { loadAppData } = useContext(AppContext) || {}
   const { settings, loading: settingsLoading } = useSettings()
   const { update, loading: updateLoading } = useSupabaseMutation()
   const [formData, setFormData] = useState({})
@@ -27,12 +43,18 @@ export function SettingsPanelEditor() {
   const handleSave = async () => {
     try {
       setSaveStatus('Saving settings...')
-      const result = await update('settings', settings.id, formData)
+      const payload = SETTINGS_FIELDS.reduce((acc, key) => {
+        if (formData[key] !== undefined) acc[key] = formData[key]
+        return acc
+      }, {})
+
+      const result = await update('settings', settings.id, payload)
 
       if (result.success) {
-        setSaveStatus('✅ Settings saved successfully!')
+        setSaveStatus('Settings saved! Chatbot is ready after you refresh the site.')
         setEditMode(false)
-        setTimeout(() => setSaveStatus(''), 3000)
+        if (typeof loadAppData === 'function') await loadAppData()
+        setTimeout(() => setSaveStatus(''), 4000)
       } else {
         setSaveStatus('❌ Failed to save settings')
       }
@@ -158,7 +180,7 @@ export function SettingsPanelEditor() {
           {/* Gemini API Key */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              AI Chatbot Key
+              AI Chatbot Key (Google Gemini)
             </label>
             <input
               disabled={!editMode}
@@ -166,8 +188,21 @@ export function SettingsPanelEditor() {
               value={formData.gemini_api_key || ''}
               onChange={(e) => handleInputChange('gemini_api_key', e.target.value)}
               className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 disabled:bg-slate-50 disabled:text-slate-600"
-              placeholder="Enter your chatbot key (optional)"
+              placeholder="Paste API key from Google AI Studio"
+              autoComplete="off"
             />
+            <p className="mt-2 text-xs text-slate-500">
+              Powers the red AI tutor button on the website. Get a free key at{' '}
+              <a
+                href="https://aistudio.google.com/apikey"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#D90429] underline"
+              >
+                Google AI Studio
+              </a>
+              , paste it here, click Save, then test on the homepage.
+            </p>
           </div>
 
           {/* Made By */}

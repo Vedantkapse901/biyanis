@@ -46,7 +46,7 @@ export function DoubtChatbot() {
         prompt,
         "You are a JEE/NEET expert tutor for BJNP. Answer in one complete message: clear, concise, no mid-sentence cutoffs; text only, no markdown unless needed.",
         2048,
-        data.settings.geminiApiKey,
+        data.settings.geminiApiKey || data.settings.gemini_api_key,
       );
       setMessages((p) => [...p, { role: 'assistant', content: res }]);
     } finally {

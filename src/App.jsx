@@ -32,6 +32,17 @@ const defaultData = {
   studyMaterials: [],
 }
 
+function normalizeSettings(row) {
+  if (!row) return {};
+  return {
+    tagline: row.tagline ?? '',
+    whatsapp: row.whatsapp ?? '',
+    reviewLink: row.review_link ?? row.reviewLink ?? '',
+    geminiApiKey: row.gemini_api_key ?? row.geminiApiKey ?? '',
+    madeBy: row.made_by ?? row.madeBy ?? '',
+  };
+}
+
 function AppContent({ appData, updateAppData, isSupabaseConnected, loadAppData, reviewModalOpen, setReviewModalOpen }) {
   const location = useLocation()
   const isAdminPage = location.pathname === '/admin'
@@ -254,8 +265,8 @@ export default function App() {
       if (!settingsRes.error && settingsRes.data) {
         newData.settings = {
           ...newData.settings,
-          ...settingsRes.data,
-        }
+          ...normalizeSettings(settingsRes.data),
+        };
       }
 
       if (!slidesRes.error && slidesRes.data) {
@@ -337,7 +348,7 @@ export default function App() {
   }
 
   return (
-    <AppContext.Provider value={{ data: appData, setData: updateAppData }}>
+    <AppContext.Provider value={{ data: appData, setData: updateAppData, loadAppData }}>
       <Router>
         <AppContent
           appData={appData}
