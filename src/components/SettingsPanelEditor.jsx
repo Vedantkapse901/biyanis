@@ -37,7 +37,7 @@ export function SettingsPanelEditor() {
         setSaveStatus('❌ Failed to save settings')
       }
     } catch (error) {
-      setSaveStatus('❌ Error: ' + error.message)
+      setSaveStatus('Could not save settings. Please try again.')
     }
   }
 
@@ -158,7 +158,7 @@ export function SettingsPanelEditor() {
           {/* Gemini API Key */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Gemini API Key
+              AI Chatbot Key
             </label>
             <input
               disabled={!editMode}
@@ -166,7 +166,7 @@ export function SettingsPanelEditor() {
               value={formData.gemini_api_key || ''}
               onChange={(e) => handleInputChange('gemini_api_key', e.target.value)}
               className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 disabled:bg-slate-50 disabled:text-slate-600"
-              placeholder="Enter your Gemini API key"
+              placeholder="Enter your chatbot key (optional)"
             />
           </div>
 

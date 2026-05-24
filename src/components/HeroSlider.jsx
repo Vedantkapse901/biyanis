@@ -52,7 +52,7 @@ export function HeroSlider() {
   const ctaUrl = getSlideCtaUrl(activeSlide);
 
   return (
-    <div className="relative mt-20 w-full">
+    <div className="relative mt-16 w-full sm:mt-20">
       <div className="relative w-full">
         {!mediaSrc ? (
           <div className="flex h-48 w-full items-center justify-center bg-slate-200 text-slate-500">

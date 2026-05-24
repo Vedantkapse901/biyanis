@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, X, Upload, Loader, Link as LinkIcon } from 'lucide
 import { GlassCard } from './ui/GlassCard';
 import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage';
 import { buildB2DisplayUrl } from '../lib/b2MediaUrls';
+import { friendlyError, userMessages } from '../lib/userMessages';
 import { ResolvedImage } from './ResolvedImage';
 
 export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loading = false }) {
@@ -60,7 +61,7 @@ export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loadi
       console.log('✅ Gallery photo uploaded:', url);
     } catch (error) {
       console.error('❌ Photo upload failed:', error);
-      alert('Photo upload failed: ' + error.message);
+      alert(friendlyError(error, userMessages.uploadFailed));
       setImagePreview(null);
     } finally {
       setUploading(false);

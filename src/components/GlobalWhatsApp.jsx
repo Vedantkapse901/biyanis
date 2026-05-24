@@ -28,7 +28,7 @@ export function GlobalWhatsApp() {
           href={`https://wa.me/${data.settings.whatsapp}?text=${msg}`}
           target="_blank"
           rel="noreferrer"
-          className="group fixed bottom-6 left-6 z-40 flex items-center justify-center rounded-full bg-green-500 p-4 shadow-[0_0_20px_rgba(34,197,94,0.5)] transition-transform hover:scale-110"
+          className="group fab-bottom fixed left-4 z-40 flex items-center justify-center rounded-full bg-green-500 p-3.5 shadow-[0_0_20px_rgba(34,197,94,0.5)] transition-transform hover:scale-110 sm:left-6 sm:p-4"
         >
           <MessageCircle className="h-7 w-7 text-white" />
           <span className="pointer-events-none absolute left-full ml-4 whitespace-nowrap rounded-lg bg-[#0A0F2C] px-3 py-1.5 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">

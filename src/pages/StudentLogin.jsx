@@ -58,7 +58,7 @@ export function StudentLogin() {
       console.log('Available usernames:', students.map(s => s.username));
 
       if (students.length === 0) {
-        setError('No students in database! Run migration first.');
+        setError('Student login is not set up yet. Please contact your institute.');
       } else {
         setError('Invalid credentials.');
       }
@@ -84,10 +84,10 @@ export function StudentLogin() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-[#F8F9FA] pb-24 pt-32">
+      <div className="page-shell bg-[#F8F9FA]">
         <div className="mx-auto max-w-md px-4 sm:px-6 lg:px-8">
           <div className="mb-8 text-center">
-            <h1 className="mb-3 font-serif text-4xl font-bold text-[#0A0F2C] md:text-5xl">Student Login</h1>
+            <h1 className="mb-3 font-serif text-3xl font-bold text-[#0A0F2C] sm:text-4xl md:text-5xl">Student Login</h1>
             <p className="text-slate-600">Login to access 11th & 12th documents.</p>
           </div>
 

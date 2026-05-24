@@ -16,6 +16,7 @@ import { GalleryManagement } from './GalleryManagement'
 import { ColorChangePanel } from './ColorChangePanel'
 import { StudyMaterialsManagement } from './StudyMaterialsManagement'
 import { uploadToB2 } from '../lib/mediaStorage'
+import { friendlyError, isErrorStatus, userMessages } from '../lib/userMessages'
 import { createResultAdmin, deleteResultAdmin, updateResultAdmin } from '../lib/resultsAdminApi'
 import { supabase } from '../lib/supabase'
 import { sanitizeBranchPayload } from '../lib/branchHelpers'
@@ -116,7 +117,7 @@ export function AdminPanel() {
       setPassword('')
       setError('')
     } else {
-      setError(result.error || 'Invalid credentials')
+      setError(friendlyError(result.error, userMessages.loginInvalid))
       setTimeout(() => setError(''), 3000)
     }
   }
@@ -160,7 +161,7 @@ export function AdminPanel() {
       cancelEditSlide()
       await refetchSlides()
     } else {
-      setSaveStatus(`Failed: ${result.error || 'Could not save slide'}`)
+      setSaveStatus(userMessages.saveFailed)
     }
   }
 
@@ -252,8 +253,8 @@ export function AdminPanel() {
       await refetchBranches()
       return result.data?.[0] || null
     }
-    const message = result.error || 'Failed to add branch'
-    setSaveStatus(`Failed: ${message}`)
+    const message = friendlyError(result.error, userMessages.saveFailed)
+    setSaveStatus(message)
     throw new Error(message)
   }
 
@@ -264,8 +265,8 @@ export function AdminPanel() {
       await refetchBranches()
       return
     }
-    const message = result.error || 'Failed to update branch'
-    setSaveStatus(`Failed: ${message}`)
+    const message = friendlyError(result.error, userMessages.saveFailed)
+    setSaveStatus(message)
     throw new Error(message)
   }
 
@@ -276,8 +277,8 @@ export function AdminPanel() {
       await refetchBranches()
       return
     }
-    const message = result.error || 'Failed to delete branch'
-    setSaveStatus(`Failed: ${message}`)
+    const message = friendlyError(result.error, userMessages.deleteFailed)
+    setSaveStatus(message)
     throw new Error(message)
   }
 
@@ -286,15 +287,12 @@ export function AdminPanel() {
   const handleAddSlideWithFile = async (formData) => {
     try {
       setAddingSlide(true)
-      setSaveStatus('Uploading...')
+      setSaveStatus(userMessages.uploading)
 
-      console.log('Form data received:', formData)
-
-      // Upload file to B2
       const b2Result = await uploadToB2(formData.file, 'slides/')
 
-      if (!b2Result.publicUrl) {
-        throw new Error('Failed to get public URL from B2')
+      if (!b2Result.storageRef && !b2Result.publicUrl) {
+        throw new Error(userMessages.uploadFailed)
       }
 
       // Store B2 ref; frontend resolves to /api/download proxy URL
@@ -306,19 +304,17 @@ export function AdminPanel() {
         display_order: draftSlides.length,
       }
 
-      console.log('Slide object to save:', newSlide)
-
       const result = await insert('slides', newSlide)
       if (result.success) {
-        setSaveStatus('✅ Slide added successfully!')
+        setSaveStatus(userMessages.slideAdded)
         setShowSlideForm(false)
         setTimeout(() => refetchSlides(), 500)
       } else {
-        setSaveStatus('❌ Failed to save slide to database')
+        setSaveStatus(userMessages.slideSaveFailed)
       }
     } catch (error) {
       console.error('Error adding slide:', error)
-      setSaveStatus(`❌ Error: ${error.message}`)
+      setSaveStatus(friendlyError(error, userMessages.slideSaveFailed))
     } finally {
       setAddingSlide(false)
       setTimeout(() => setSaveStatus(''), 3000)
@@ -331,8 +327,8 @@ export function AdminPanel() {
 
   if (!auth) {
     return (
-      <section className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-16">
-        <div className="mx-auto max-w-md">
+      <section className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-8 sm:py-16">
+        <div className="mx-auto w-full max-w-md">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
             <div className="text-center">
               <Lock className="mx-auto h-12 w-12 text-[#D90429] mb-4" />
@@ -391,10 +387,9 @@ export function AdminPanel() {
                   {authLoading ? '🔄 Logging in...' : 'Login'}
                 </button>
 
-                <div className="mt-4 p-3 bg-slate-800/50 rounded border border-slate-700 text-xs text-slate-300">
-                  <p>✅ Using Supabase Auth</p>
-                  <p>Credentials verified from Supabase Authentication</p>
-                </div>
+                <p className="mt-4 text-center text-xs text-slate-400">
+                  Secure admin login for Biyanis staff only.
+                </p>
               </form>
             </GlassCard>
           </motion.div>
@@ -416,8 +411,8 @@ export function AdminPanel() {
         />
       )}
 
-      <section className="min-h-screen bg-[#F8F9FA] pt-40">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="admin-shell bg-[#F8F9FA]">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 lg:px-8">
           {/* Status Message */}
           {saveStatus && (
             <motion.div
@@ -425,24 +420,24 @@ export function AdminPanel() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               className={`mb-4 rounded-lg px-4 py-3 font-semibold ${
-                saveStatus.startsWith('Failed')
+                isErrorStatus(saveStatus)
                   ? 'bg-red-100 text-red-800'
                   : 'bg-green-100 text-green-800'
               }`}
             >
-              {saveStatus.startsWith('Failed') ? '❌' : '✅'} {saveStatus}
+              {isErrorStatus(saveStatus) ? '❌' : '✅'} {saveStatus}
             </motion.div>
           )}
 
         {/* Slides Tab */}
         {activeTab === 'slides' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-slate-900">Hero Slides</h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Hero Slides</h2>
               <button
                 onClick={handleAddSlide}
                 disabled={mutationLoading}
-                className="flex items-center gap-2 rounded-lg bg-[#D90429] px-4 py-2 font-semibold text-white hover:bg-[#b00320] disabled:opacity-50"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#D90429] px-4 py-2 font-semibold text-white hover:bg-[#b00320] disabled:opacity-50 sm:w-auto"
               >
                 <Plus className="h-5 w-5" /> Add Slide
               </button>
@@ -460,13 +455,13 @@ export function AdminPanel() {
                           onClick={() =>
                             editingId === slide.id ? cancelEditSlide() : startEditSlide(slide)
                           }
-                          className="text-blue-600 hover:text-blue-800"
+                          className="tap-target text-blue-600 hover:text-blue-800"
                         >
                           {editingId === slide.id ? <X /> : <Edit2 className="h-5 w-5" />}
                         </button>
                         <button
                           onClick={() => handleDeleteSlide(slide.id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="tap-target text-red-600 hover:text-red-800"
                         >
                           <Trash2 className="h-5 w-5" />
                         </button>
@@ -529,15 +524,15 @@ export function AdminPanel() {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold mb-2">Media URL</label>
+                          <label className="block text-sm font-semibold mb-2">Media link</label>
                           <input
                             type="url"
                             value={slideEditDraft.url || ''}
                             onChange={(e) => updateSlideDraft('url', e.target.value)}
-                            placeholder="https://... (B2 public URL)"
+                            placeholder="Paste a link or use Add Slide to upload"
                             className="w-full rounded border border-slate-300 px-3 py-2"
                           />
-                          <p className="text-xs text-slate-500 mt-1">Use Add Slide to upload new media to B2</p>
+                          <p className="text-xs text-slate-500 mt-1">Use Add Slide to upload new images or videos</p>
                         </div>
 
                         <div className="flex gap-3">

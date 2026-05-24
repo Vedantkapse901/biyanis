@@ -6,7 +6,7 @@ import { AccentText } from '../components/ui/AccentText';
 export function About() {
   return (
     <PageTransition>
-      <div className="min-h-screen bg-[#F8F9FA] pb-24 pt-32">
+      <div className="page-shell bg-[#F8F9FA]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
           {/* Hero Header */}

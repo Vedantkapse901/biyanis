@@ -130,7 +130,7 @@ export function Courses() {
   if (loading) {
     return (
       <PageTransition>
-        <div className="min-h-screen bg-[#F8F9FA] pb-24 pt-32 flex items-center justify-center">
+        <div className="page-shell bg-[#F8F9FA] flex items-center justify-center">
           <div className="text-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#D90429] border-t-transparent mx-auto"></div>
             <p className="mt-4 text-slate-600">Loading courses...</p>
@@ -142,7 +142,7 @@ export function Courses() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-[#F8F9FA] pb-24 pt-32">
+      <div className="page-shell bg-[#F8F9FA]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-16 text-center">
             <h1 className="mb-4 font-serif text-4xl font-bold text-[#0A0F2C] md:text-6xl">

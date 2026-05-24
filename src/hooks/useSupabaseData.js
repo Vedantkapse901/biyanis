@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { friendlyError, userMessages } from '../lib/userMessages'
 
 /**
  * Generic hook to fetch data from Supabase table
@@ -44,7 +45,7 @@ export function useSupabaseTable(table, options = {}) {
       setData(result || [])
     } catch (err) {
       console.error(`Error fetching from ${table}:`, err)
-      setError(err.message)
+      setError(friendlyError(err, userMessages.saveFailed))
       setData([])
     } finally {
       setLoading(false)
@@ -126,7 +127,7 @@ export function useGalleryFolders() {
         setData(folders || [])
       } catch (err) {
         console.error('Error fetching gallery:', err)
-        setError(err.message)
+        setError(friendlyError(err, userMessages.saveFailed))
       } finally {
         setLoading(false)
       }
@@ -189,7 +190,7 @@ export function useSettings() {
         setSettings(data)
       } catch (err) {
         console.error('Error fetching settings:', err)
-        setError(err.message)
+        setError(friendlyError(err, userMessages.saveFailed))
       } finally {
         setLoading(false)
       }
@@ -221,8 +222,8 @@ export function useSupabaseMutation() {
       return { success: true, data: result }
     } catch (err) {
       console.error(`Error inserting into ${table}:`, err)
-      setError(err.message)
-      return { success: false, error: err.message }
+      setError(friendlyError(err, userMessages.saveFailed))
+      return { success: false, error: friendlyError(err, userMessages.saveFailed) }
     } finally {
       setLoading(false)
     }
@@ -240,16 +241,15 @@ export function useSupabaseMutation() {
 
       if (err) throw err
       if (!result?.length) {
-        const msg =
-          'No rows updated. Log out, log in again as admin, or run database/results_rls_fix.sql in Supabase.'
+        const msg = 'Could not save changes. Please log out, log in again, and retry.'
         setError(msg)
         return { success: false, error: msg }
       }
       return { success: true, data: result }
     } catch (err) {
       console.error(`Error updating ${table}:`, err)
-      setError(err.message)
-      return { success: false, error: err.message }
+      setError(friendlyError(err, userMessages.saveFailed))
+      return { success: false, error: friendlyError(err, userMessages.saveFailed) }
     } finally {
       setLoading(false)
     }
@@ -265,8 +265,8 @@ export function useSupabaseMutation() {
       return { success: true }
     } catch (err) {
       console.error(`Error deleting from ${table}:`, err)
-      setError(err.message)
-      return { success: false, error: err.message }
+      setError(friendlyError(err, userMessages.saveFailed))
+      return { success: false, error: friendlyError(err, userMessages.saveFailed) }
     } finally {
       setLoading(false)
     }
@@ -304,8 +304,8 @@ export function useSupabaseStorage() {
       return { success: true, url: publicUrl.publicUrl, path: data.path }
     } catch (err) {
       console.error('Upload error:', err)
-      setError(err.message)
-      return { success: false, error: err.message }
+      setError(friendlyError(err, userMessages.saveFailed))
+      return { success: false, error: friendlyError(err, userMessages.saveFailed) }
     } finally {
       setLoading(false)
     }
@@ -322,8 +322,8 @@ export function useSupabaseStorage() {
       return { success: true }
     } catch (err) {
       console.error('Delete error:', err)
-      setError(err.message)
-      return { success: false, error: err.message }
+      setError(friendlyError(err, userMessages.saveFailed))
+      return { success: false, error: friendlyError(err, userMessages.saveFailed) }
     } finally {
       setLoading(false)
     }
@@ -355,14 +355,14 @@ export function useAdminAuth() {
 
       if (err) {
         console.error('❌ Supabase Auth error:', err.message)
-        setError(err.message || 'Login failed')
-        return { success: false, user: null }
+        setError(userMessages.loginInvalid)
+        return { success: false, error: userMessages.loginInvalid, user: null }
       }
 
       if (!data.user) {
         console.error('❌ No user returned from Supabase Auth')
-        setError('Authentication failed')
-        return { success: false, user: null }
+        setError(userMessages.loginInvalid)
+        return { success: false, error: userMessages.loginInvalid, user: null }
       }
 
       console.log('✅ Supabase Auth successful for:', data.user.email)
@@ -407,8 +407,8 @@ export function useAdminAuth() {
       }
     } catch (err) {
       console.error('❌ Auth exception:', err)
-      setError(err.message || 'Authentication failed')
-      return { success: false, user: null }
+      setError(friendlyError(err, userMessages.loginInvalid))
+      return { success: false, error: userMessages.loginInvalid, user: null }
     } finally {
       setLoading(false)
     }

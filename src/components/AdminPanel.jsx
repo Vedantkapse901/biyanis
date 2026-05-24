@@ -6,6 +6,7 @@ import { AppContext } from '../context/AppContext';
 import { defaultData } from '../data/defaultData';
 import { uploadToB2 } from '../lib/mediaStorage';
 import { buildB2PdfViewUrl } from '../lib/b2MediaUrls';
+import { friendlyError, userMessages } from '../lib/userMessages';
 import { GlassCard } from './ui/GlassCard';
 import { ThemeButton } from './ui/ThemeButton';
 import { StorageManagement } from './StorageManagement';
@@ -147,7 +148,6 @@ export function AdminPanel() {
 
       setSaveStatus(`Uploading ${file.name}...`);
 
-      // Upload to B2
       const uploadResult = await uploadToB2(file, folder);
 
       updateArrayItem(tab, id, field, uploadResult.storageRef || uploadResult.publicUrl);
@@ -158,8 +158,8 @@ export function AdminPanel() {
       setSaveStatus(`✓ ${file.name} uploaded successfully!`);
       setTimeout(() => setSaveStatus(''), 2500);
     } catch (error) {
-      console.error('B2 upload failed:', error);
-      setSaveStatus(`✗ Upload error: ${error.message}`);
+      console.error('Upload failed:', error);
+      setSaveStatus(friendlyError(error, userMessages.uploadFailed));
       setTimeout(() => setSaveStatus(''), 3000);
     }
   };
@@ -241,8 +241,8 @@ export function AdminPanel() {
   return (
     <>
       <AdminNavbar activeTab={activeTab} onTabChange={setActiveTab} onLogout={handleLogout} />
-      <div className="min-h-screen bg-[#F8F9FA] pt-40">
-        <div className="mx-auto max-w-7xl px-4 p-4 md:p-8 sm:px-6 lg:px-8">
+      <div className="admin-shell bg-[#F8F9FA]">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 md:p-4 md:px-6 lg:px-8">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-serif text-3xl font-bold capitalize text-[#0A0F2C]">
             {activeTab === 'studentPortal'
@@ -303,7 +303,7 @@ export function AdminPanel() {
                 <Bot className="h-6 w-6 text-[#D90429]" /> AI (Gemini) - Tutor & Review Assistant
               </h2>
               <p className="mb-4 text-sm text-slate-600">Create a key at Google AI Studio and paste it here.</p>
-              <label className="mb-1 block text-xs font-bold text-slate-500">Gemini API key</label>
+              <label className="mb-1 block text-xs font-bold text-slate-500">AI chatbot key</label>
               <input
                 type="password"
                 autoComplete="off"

@@ -55,8 +55,8 @@ export function SlideForm({ onClose, onSubmit, isLoading }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <GlassCard className="w-full max-w-md bg-white p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center sm:p-4">
+      <GlassCard className="max-h-[90vh] w-full max-w-md overflow-y-auto bg-white p-4 sm:p-6 custom-scrollbar">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <h2 className="font-serif text-2xl font-bold text-[#0A0F2C]">

@@ -3,6 +3,7 @@ import { Upload, Trash2, Plus, Download } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
 import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage'
 import { buildB2PdfDownloadUrl, buildB2PdfViewUrl } from '../lib/b2MediaUrls'
+import { friendlyError, userMessages } from '../lib/userMessages'
 
 const COURSES = [
   { id: 'JEE', name: 'JEE Main & Advanced' },
@@ -37,7 +38,7 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
       return
     }
 
-    setUploadProgress('🔄 Uploading...')
+    setUploadProgress(userMessages.uploading)
     setUploadLoading(true)
 
     try {
@@ -53,14 +54,14 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
       })
 
       if (!storageRef) {
-        alert('❌ Upload failed: Could not get file reference')
+        alert(userMessages.uploadFailed)
         setUploadProgress('')
         setUploadLoading(false)
         return
       }
 
       setLastPdfLinks({ viewUrl, downloadUrl, storageRef })
-      setUploadProgress('✅ Upload successful! Saving to database...')
+      setUploadProgress(userMessages.savingRecord)
 
       const newMaterial = {
         title: editingTitle,
@@ -73,7 +74,7 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
 
       await onAdd(newMaterial)
 
-      setUploadProgress('✅ Material uploaded and saved!')
+      setUploadProgress('Material uploaded and saved!')
       setTimeout(() => {
         setEditingTitle('')
         setEditingFile(null)
@@ -84,7 +85,7 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
 
     } catch (error) {
       console.error('Upload error:', error)
-      alert('❌ Error: ' + error.message)
+      alert(friendlyError(error, userMessages.uploadFailed))
       setUploadProgress('')
       setUploadLoading(false)
     }
@@ -208,7 +209,7 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
 
               {lastPdfLinks && (
                 <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-900 space-y-2">
-                  <p className="font-bold">PDF links (saved to database as secure reference):</p>
+                  <p className="font-bold">PDF links ready to share with students:</p>
                   <p>
                     <span className="font-semibold">View: </span>
                     <a href={lastPdfLinks.viewUrl} target="_blank" rel="noreferrer" className="break-all underline">
@@ -230,7 +231,7 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
                   disabled={isLoading || uploadLoading || !editingTitle || !editingFile}
                   className="flex-1 rounded-lg bg-[#D90429] px-4 py-2 font-semibold text-white hover:bg-[#b00320] disabled:opacity-50 transition-colors"
                 >
-                  {uploadLoading ? '🔄 Uploading...' : '⬆️ Upload to B2'}
+                  {uploadLoading ? 'Uploading…' : 'Upload PDF'}
                 </button>
                 <button
                   onClick={() => {
@@ -314,15 +315,14 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
       {/* Info Box */}
       <div className="rounded-lg bg-green-50 border border-green-200 p-4">
         <p className="text-sm text-green-800">
-          <strong>💡 How it works:</strong> PDFs upload to B2 and save as a secure reference. Students get full website links via <code>/api/download</code> (view in tab + download) — not direct B2 URLs.
+          <strong>How it works:</strong> Upload PDFs for each course and class. Students can view and download them from their portal using secure website links.
         </p>
       </div>
 
       {/* Storage Info */}
       <div className="rounded-lg bg-amber-50 border border-amber-200 p-4">
         <p className="text-sm text-amber-800">
-          <strong>☁️ Storage path:</strong> PDFs are stored under: <br />
-          <code className="bg-white px-2 py-1 rounded text-xs font-mono">study-materials/{'{course}'}/class-{'{class}'}/{'{filename}'}</code>
+          <strong>Tip:</strong> PDFs are organised by course and class so students only see what applies to them.
         </p>
       </div>
     </div>

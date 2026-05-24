@@ -66,7 +66,7 @@ export function DoubtChatbot() {
             exit={{ opacity: 0, scale: 0.5 }}
             transition={{ duration: 0.3 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-40 flex rounded-full bg-[#D90429] p-4 shadow-[0_4px_15px_rgba(217,4,41,0.4)] transition-all hover:scale-110 hover:bg-[#b00320]"
+            className="fab-bottom fixed right-4 z-40 flex rounded-full bg-[#D90429] p-3.5 shadow-[0_4px_15px_rgba(217,4,41,0.4)] transition-all hover:scale-110 hover:bg-[#b00320] sm:right-6 sm:p-4"
           >
             <Bot className="h-7 w-7 text-white" />
           </motion.button>
@@ -79,7 +79,7 @@ export function DoubtChatbot() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-0 z-50 flex h-[500px] w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl sm:bottom-6 sm:right-6 sm:w-[350px] sm:rounded-2xl"
+            className="fixed bottom-0 z-50 flex h-[min(85vh,500px)] w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl sm:bottom-6 sm:right-6 sm:h-[500px] sm:w-[350px] sm:rounded-2xl fab-bottom"
           >
             <div className="flex items-center justify-between border-b border-slate-200 bg-[#0A0F2C] p-4">
               <span className="flex items-center gap-2 font-bold text-white">

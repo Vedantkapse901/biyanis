@@ -4,6 +4,7 @@
  */
 import { supabase } from './supabase';
 import { buildB2DisplayUrl, buildB2PdfDownloadUrl, buildB2PdfViewUrl, toB2StorageRef } from './b2MediaUrls';
+import { friendlyError, userMessages } from './userMessages';
 
 function resolveApiBase() {
   const raw = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -46,10 +47,10 @@ function splitStoragePath(storagePath) {
 }
 
 async function getAccessToken() {
-  if (!supabase) throw new Error('Supabase is not configured.');
+  if (!supabase) throw new Error(userMessages.loginInvalid);
   const { data, error } = await supabase.auth.getSession();
   if (error || !data?.session?.access_token) {
-    throw new Error('Not authenticated. Please log in to the admin panel first.');
+    throw new Error('Please log in to the admin panel and try again.');
   }
   return data.session.access_token;
 }
@@ -77,20 +78,14 @@ export async function uploadAdminFile({ storagePath, file, contentType }) {
 
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = result.error || `Upload failed (${response.status})`;
-    if (response.status === 500 && message === `Upload failed (${response.status})`) {
-      throw new Error(
-        `${message}. Ensure B2 + SUPABASE_SERVICE_ROLE_KEY are in .env and run: npm run dev`
-      );
-    }
-    throw new Error(message);
+    throw new Error(friendlyError(result.error, userMessages.uploadFailed));
   }
 
   const key = result.fileName || storagePath;
   const storageRef = toB2StorageRef(key);
   const displayUrl = buildB2DisplayUrl(storageRef);
 
-  if (!storageRef) throw new Error('Upload succeeded but no file path returned');
+  if (!storageRef) throw new Error(userMessages.uploadFailed);
 
   return {
     url: displayUrl,
@@ -122,11 +117,11 @@ export async function uploadToB2Folder(file, folder = 'uploads/') {
 export const uploadToB2 = uploadToB2Folder;
 
 export async function deleteAdminFile() {
-  throw new Error('Delete via B2 console or Storage tab (not implemented yet).');
+  throw new Error('File delete is not available here yet.');
 }
 
 export async function listAdminFiles() {
-  throw new Error('B2 file listing not implemented in admin yet.');
+  throw new Error('File list is not available here yet.');
 }
 
 export default {

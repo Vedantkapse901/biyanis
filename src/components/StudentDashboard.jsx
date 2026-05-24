@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Download, LogOut, Loader, ExternalLink } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
 import { buildB2PdfViewUrl, openPdfViewAndDownload } from '../lib/b2MediaUrls'
+import { userMessages } from '../lib/userMessages'
 
 const COURSES = [
   { id: 'JEE', name: 'JEE Main & Advanced', color: 'bg-blue-100 border-blue-300' },
@@ -22,7 +23,7 @@ export function StudentDashboard({ student, materials, onLogout }) {
 
   const handleDownload = async (material) => {
     if (!material?.pdf_url) {
-      alert('PDF not available for this material.')
+      alert(userMessages.pdfUnavailable)
       return
     }
 
@@ -34,7 +35,7 @@ export function StudentDashboard({ student, materials, onLogout }) {
       }
     } catch (error) {
       console.error('PDF download error:', error)
-      alert('Failed to download PDF. Please try again.')
+      alert(userMessages.pdfDownloadFailed)
     } finally {
       setDownloadingId(null)
     }
@@ -43,7 +44,7 @@ export function StudentDashboard({ student, materials, onLogout }) {
   const handleView = (material) => {
     const viewUrl = buildB2PdfViewUrl(material.pdf_url)
     if (!viewUrl) {
-      alert('PDF not available for this material.')
+      alert(userMessages.pdfUnavailable)
       return
     }
     window.open(viewUrl, '_blank', 'noopener,noreferrer')
@@ -56,31 +57,31 @@ export function StudentDashboard({ student, materials, onLogout }) {
   const studentCourse = COURSES.find((c) => c.id === student.course)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 px-4 pt-32 pb-12">
+    <div className="page-shell bg-gradient-to-br from-slate-50 to-slate-100 px-3 sm:px-4">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex items-center justify-between rounded-lg bg-white p-6 shadow-md">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Welcome, {student.name}!</h1>
+        <div className="mb-8 flex flex-col gap-4 rounded-lg bg-white p-4 shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Welcome, {student.name}!</h1>
             <p className="mt-2 text-slate-600">
               {studentCourse?.name} | Class {student.class_level}
             </p>
           </div>
           <button
             onClick={onLogout}
-            className="flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 font-semibold text-white hover:bg-red-600 transition-colors"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2.5 font-semibold text-white hover:bg-red-600 transition-colors sm:w-auto"
           >
             <LogOut className="h-5 w-5" />
             Logout
           </button>
         </div>
 
-        <GlassCard className={`mb-8 border-2 p-6 ${studentCourse?.color}`}>
-          <div className="flex items-center justify-between">
+        <GlassCard className={`mb-8 border-2 p-4 sm:p-6 ${studentCourse?.color}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">{studentCourse?.name}</h2>
               <p className="mt-2 text-slate-700">Class {student.class_level} Study Materials</p>
             </div>
-            <div className="text-5xl">
+            <div className="text-4xl sm:text-5xl">
               {student.course === 'JEE' && '📐'}
               {student.course === 'NEET' && '🔬'}
               {student.course === 'MHT-CET' && '📊'}
@@ -108,11 +109,11 @@ export function StudentDashboard({ student, materials, onLogout }) {
                         : 'PDF'}
                     </p>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                       <button
                         type="button"
                         onClick={() => handleView(material)}
-                        className="inline-flex items-center gap-2 rounded-lg border border-[#D90429] px-4 py-2 text-sm font-semibold text-[#D90429] hover:bg-[#D90429]/5 transition-colors"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-[#D90429] px-4 py-2.5 text-sm font-semibold text-[#D90429] hover:bg-[#D90429]/5 transition-colors"
                       >
                         <ExternalLink className="h-4 w-4" />
                         View PDF
@@ -121,7 +122,7 @@ export function StudentDashboard({ student, materials, onLogout }) {
                         type="button"
                         onClick={() => handleDownload(material)}
                         disabled={downloadingId === material.id}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#D90429] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b00320] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-[#D90429] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#b00320] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {downloadingId === material.id ? (
                           <>
@@ -152,9 +153,8 @@ export function StudentDashboard({ student, materials, onLogout }) {
 
         <div className="mt-8 rounded-lg bg-blue-50 border border-blue-200 p-4">
           <p className="text-sm text-blue-800">
-            <strong>📚 About Your Portal:</strong> View opens the PDF in a new tab. Download opens the PDF
-            and saves a copy to your device — files are served securely through our website, not direct
-            cloud links.
+            <strong>About your portal:</strong> View opens the PDF in a new tab. Download saves a copy to
+            your device. All files are served securely through the Biyanis website.
           </p>
         </div>
       </div>

@@ -13,7 +13,7 @@ export function Results() {
   if (loading) {
     return (
       <PageTransition>
-        <motion.div className="min-h-screen bg-[#F8F9FA] pb-24 pt-32 flex items-center justify-center">
+        <div className="page-shell flex items-center justify-center bg-[#F8F9FA]">
           <motion.div
             className="text-center"
             initial={{ opacity: 0 }}
@@ -22,7 +22,7 @@ export function Results() {
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#D90429] border-t-transparent mx-auto" />
             <p className="mt-4 text-slate-600">Loading results...</p>
           </motion.div>
-        </motion.div>
+        </div>
       </PageTransition>
     );
   }
@@ -33,7 +33,7 @@ export function Results() {
   return (
     <PageTransition>
       <motion.div
-        className="min-h-screen overflow-hidden bg-[#F8F9FA] pb-24 pt-32"
+        className="page-shell overflow-hidden bg-[#F8F9FA]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}

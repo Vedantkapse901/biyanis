@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit2, X, FileText, Upload, Loader } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
 import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage'
 import { buildB2PdfDownloadUrl, buildB2PdfViewUrl } from '../lib/b2MediaUrls'
+import { friendlyError, userMessages } from '../lib/userMessages'
 
 const EXAM_TYPES = [
   { id: 'jee', label: '🔬 JEE', color: 'bg-blue-100' },
@@ -84,13 +85,11 @@ export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDel
       const material = materials.find((m) => m.id === materialId)
       if (material) {
         await onUpdate(materialId, { ...material, pdf_url: storageRef })
-        if (viewUrl) {
-          alert(`PDF uploaded.\n\nView link:\n${viewUrl}`)
-        }
+        alert(userMessages.uploadSuccess)
       }
     } catch (err) {
       console.error('PDF upload failed:', err)
-      alert('PDF upload failed: ' + err.message)
+      alert(friendlyError(err, userMessages.uploadFailed))
     } finally {
       setPdfUploadingId(null)
     }
@@ -122,7 +121,7 @@ export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDel
 
           return (
             <div key={section}>
-              <div className="flex justify-between items-center mb-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                   <FileText className="h-5 w-5 text-[#D90429]" />
                   {section}
@@ -196,32 +195,24 @@ export function StudentPortalManagement({ materials = [], onAdd, onUpdate, onDel
                                 onChange={(e) =>
                                   handleUpdateMaterial(material.id, { ...material, pdf_url: e.target.value })
                                 }
-                                placeholder="b2ref://… or paste Google Drive / external URL"
+                                placeholder="Paste Google Drive link or upload a PDF below"
                                 className="w-full rounded border border-slate-300 px-2 py-1 font-mono text-xs"
                               />
                               {material.pdf_url && buildB2PdfViewUrl(material.pdf_url) && (
-                                <p className="mt-1 text-xs text-slate-500 break-all">
-                                  View:{' '}
-                                  <a
-                                    href={buildB2PdfViewUrl(material.pdf_url)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[#D90429] underline"
-                                  >
-                                    {buildB2PdfViewUrl(material.pdf_url)}
-                                  </a>
+                                <p className="mt-1 text-xs text-green-700 font-semibold">
+                                  PDF uploaded — use View PDF below to check it.
                                 </p>
                               )}
                               <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded border border-dashed border-slate-300 px-2 py-2 text-xs font-semibold text-slate-600 hover:border-[#D90429]">
                                 {pdfUploadingId === material.id ? (
                                   <>
                                     <Loader className="h-3 w-3 animate-spin text-[#D90429]" />
-                                    Uploading to B2…
+                                    Uploading…
                                   </>
                                 ) : (
                                   <>
                                     <Upload className="h-3 w-3" />
-                                    Or upload PDF to B2
+                                    Or upload a PDF file
                                   </>
                                 )}
                                 <input

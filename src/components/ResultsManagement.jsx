@@ -7,6 +7,7 @@ import { filterHallOfFame, filterTopAchievers } from '../lib/dedupeResults';
 import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage';
 import { imageUrlToDataUrl } from '../lib/cropImage';
 import { buildB2DisplayUrl } from '../lib/b2MediaUrls';
+import { friendlyError, userMessages } from '../lib/userMessages';
 import { ResolvedImage } from './ResolvedImage';
 
 export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loading = false }) {
@@ -88,7 +89,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
       console.log('✅ Photo uploaded:', url);
     } catch (error) {
       console.error('❌ Photo upload failed:', error);
-      alert('Photo upload failed: ' + error.message);
+      alert(friendlyError(error, userMessages.uploadFailed));
       setImagePreview(null);
       setFormData((prev) => ({ ...prev, photo: '' }));
     } finally {
@@ -178,7 +179,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
       }
     } catch (err) {
       console.error('Save failed:', err);
-      alert(err?.message || 'Could not save student. Check you are logged in as admin.');
+      alert(friendlyError(err, userMessages.saveFailed));
       return;
     }
 
@@ -350,7 +351,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
                     Student Photo (Circular) *
                   </label>
                   <p className="text-xs text-slate-500 mb-2">
-                    Uploads go to Backblaze B2 via /api (no Supabase Storage).
+                    Upload a clear photo — it will appear on the Hall of Fame page.
                   </p>
                   <div className="space-y-3">
                     <label className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:border-[#D90429] transition-colors relative">

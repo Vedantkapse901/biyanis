@@ -14,6 +14,17 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   const links = [
     { name: 'Home', path: '/' },
     { name: 'Courses', path: '/courses' },
@@ -29,30 +40,30 @@ export function Navbar() {
     <nav
       className={`fixed z-50 w-full transition-all duration-300 ${
         scrolled
-          ? 'border-b border-slate-200 bg-white/95 py-3 shadow-sm backdrop-blur-md'
-          : 'border-b border-slate-100 bg-white/95 py-5 backdrop-blur-sm'
+          ? 'border-b border-slate-200 bg-white/95 py-2 shadow-sm backdrop-blur-md'
+          : 'border-b border-slate-100 bg-white/95 py-3 backdrop-blur-sm sm:py-4'
       }`}
       id="main-navbar"
     >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
-          <Link to="/" className="group flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
-              <img src="/logo.png" alt="BJNP logo" className="h-10 w-10 rounded-full object-contain" />
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-2">
+          <Link to="/" className="group flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200 sm:h-12 sm:w-12">
+              <img src="/logo.png" alt="BJNP logo" className="h-8 w-8 rounded-full object-contain sm:h-10 sm:w-10" />
             </div>
-            <span className="font-serif text-2xl font-black tracking-tight">
+            <span className="truncate font-serif text-xl font-black tracking-tight sm:text-2xl">
               <span className="text-[#2563eb]">B</span>
               <span className="text-[#D90429]">JNP</span>
             </span>
           </Link>
 
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-5">
+          <div className="hidden lg:block">
+            <div className="ml-6 flex flex-wrap items-center gap-1 xl:gap-2">
               {links.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
-                  className={`rounded-md px-3 py-2 text-sm font-bold transition-all ${
+                  className={`rounded-md px-2.5 py-2 text-sm font-bold transition-all xl:px-3 ${
                     location.pathname === link.path
                       ? 'border-b-2 border-[#D90429] text-[#D90429]'
                       : 'text-slate-600 hover:border-b-2 hover:border-slate-300'
@@ -66,12 +77,13 @@ export function Navbar() {
 
           <button
             type="button"
-            className="md:hidden p-2 text-[#0A0F2C] hover:text-[#D90429]"
+            className="tap-target text-[#0A0F2C] hover:text-[#D90429] lg:hidden"
             onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isOpen}
           >
             {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
-
         </div>
       </div>
 
@@ -81,16 +93,18 @@ export function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="absolute left-0 top-full w-full overflow-hidden border-b border-slate-200 bg-white shadow-lg md:hidden"
+            className="absolute left-0 top-full max-h-[70vh] w-full overflow-y-auto border-b border-slate-200 bg-white shadow-lg custom-scrollbar lg:hidden"
           >
-            <div className="space-y-1 px-4 py-2">
+            <div className="space-y-1 px-3 py-2 sm:px-4">
               {links.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
                   onClick={() => setIsOpen(false)}
-                  className={`block border-b border-slate-100 px-3 py-4 text-base font-bold last:border-0 ${
-                    location.pathname === link.path ? 'text-[#D90429]' : 'text-slate-600 hover:text-[#D90429]'
+                  className={`block min-h-12 rounded-lg px-3 py-3 text-base font-bold ${
+                    location.pathname === link.path
+                      ? 'bg-[#D90429]/10 text-[#D90429]'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-[#D90429]'
                   }`}
                 >
                   {link.name}

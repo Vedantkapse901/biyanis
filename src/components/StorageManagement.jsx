@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { HardDrive, Trash2, RefreshCw, Download } from 'lucide-react';
 import { deleteAdminFile, isB2StorageBackend, listAdminFiles } from '../lib/mediaStorage';
+import { buildB2DisplayUrl } from '../lib/b2MediaUrls';
 import { supabase } from '../lib/supabase';
 import { GlassCard } from './ui/GlassCard';
 
@@ -19,7 +20,7 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
   const loadFiles = async () => {
     setLoading(true);
     try {
-      setSaveStatus('Loading files from cloud storage...');
+      setSaveStatus('Loading files…');
       const result = await listAdminFiles('', 1000);
       const fileList = result.files || [];
       setFiles(fileList);
@@ -27,7 +28,7 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
       setTimeout(() => setSaveStatus(''), 2500);
     } catch (error) {
       console.error('Failed to load files:', error);
-      setSaveStatus(`✗ Error loading files: ${error.message}`);
+      setSaveStatus('Could not load files. Please try again.');
       setTimeout(() => setSaveStatus(''), 3000);
     } finally {
       setLoading(false);
@@ -51,7 +52,7 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
       setTimeout(() => setSaveStatus(''), 2500);
     } catch (error) {
       console.error('Failed to delete file:', error);
-      setSaveStatus(`✗ Delete failed: ${error.message}`);
+      setSaveStatus('Could not delete this file. Please try again.');
       setTimeout(() => setSaveStatus(''), 3000);
     }
   };
@@ -120,9 +121,7 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
         <GlassCard className="bg-gradient-to-br from-emerald-50 to-emerald-100">
           <div className="text-center">
             <HardDrive className="mx-auto h-5 w-5 text-[#D90429]" />
-            <div className="text-xs font-semibold text-slate-600">
-              {isB2StorageBackend() ? 'Backblaze B2' : 'Supabase Storage'}
-            </div>
+            <div className="text-xs font-semibold text-slate-600">Media files</div>
           </div>
         </GlassCard>
       </div>
@@ -192,12 +191,7 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
                 {/* Actions */}
                 <div className="flex items-center gap-2">
                   <a
-                    href={
-                      supabasePublicUrl(file.fileName) ||
-                      (import.meta.env.VITE_B2_BUCKET_NAME
-                        ? `https://f001.backblazeb2.com/file/${import.meta.env.VITE_B2_BUCKET_NAME}/${encodeURIComponent(file.fileName)}`
-                        : '#')
-                    }
+                    href={buildB2DisplayUrl(file.fileName) || supabasePublicUrl(file.fileName) || '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 rounded bg-blue-100 px-3 py-2 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-200"
@@ -222,13 +216,11 @@ export function StorageManagement({ saveStatus, setSaveStatus }) {
 
       {/* Info */}
       <GlassCard className="border-l-4 border-l-blue-500 bg-blue-50">
-        <h3 className="mb-2 font-bold text-blue-900">
-          About {isB2StorageBackend() ? 'Backblaze B2' : 'Supabase Storage'}
-        </h3>
+        <h3 className="mb-2 font-bold text-blue-900">About file management</h3>
         <ul className="space-y-1 text-sm text-blue-800">
-          <li>✓ Files upload directly from the admin panel (no separate Node server)</li>
-          <li>✓ Public URLs work for slides, gallery, results, and study PDFs</li>
-          <li>✓ You can delete files here to free up storage space</li>
+          <li>✓ Upload images, videos, and PDFs from the admin panel</li>
+          <li>✓ Files appear on the website for slides, gallery, results, and study materials</li>
+          <li>✓ Delete old files here to free up space</li>
         </ul>
       </GlassCard>
     </div>

@@ -41,7 +41,7 @@ function AppContent({ appData, updateAppData, isSupabaseConnected, loadAppData, 
       {/* Connection Status Indicator */}
       {!isSupabaseConnected && (
         <div className="bg-yellow-50 px-4 py-2 text-center text-sm text-yellow-800 border-b border-yellow-200">
-          ⚠️ Using fallback data. Supabase connection not available.{' '}
+          ⚠️ Unable to load the latest content right now.{' '}
           <button
             onClick={loadAppData}
             className="underline font-semibold hover:text-yellow-900"
@@ -58,7 +58,7 @@ function AppContent({ appData, updateAppData, isSupabaseConnected, loadAppData, 
       <SmartReviewModal isOpen={reviewModalOpen} onClose={() => setReviewModalOpen(false)} />
 
       {!isAdminPage && (
-        <footer className="border-t border-slate-200 bg-[#0A0F2C] py-12" id="main-footer">
+        <footer className="safe-bottom border-t border-slate-200 bg-[#0A0F2C] py-10 sm:py-12" id="main-footer">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {/* About */}
@@ -111,7 +111,7 @@ function AppContent({ appData, updateAppData, isSupabaseConnected, loadAppData, 
 
             {/* Credits */}
             <div className="mt-8 border-t border-slate-700 pt-8">
-              <div className="flex items-center justify-center gap-2 text-center text-sm text-slate-400">
+              <div className="flex flex-wrap items-center justify-center gap-2 px-2 text-center text-sm text-slate-400">
                 <span>{appData.settings.madeBy}</span>
                 <Heart className="h-4 w-4 animate-pulse text-[#D90429]" />
               </div>

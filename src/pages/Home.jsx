@@ -40,7 +40,7 @@ export function Home() {
     <PageTransition>
       <HeroSlider />
       <section className="relative z-20 border-y border-slate-200 bg-[#0A0F2C] py-16 shadow-lg">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 text-center sm:px-6 md:grid-cols-4 lg:px-8">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-3 text-center sm:gap-8 sm:px-6 md:grid-cols-4 lg:px-8">
           {[
             { n: '10,000+', l: 'Students' },
             { n: '98%', l: 'Success Rate' },
@@ -53,7 +53,7 @@ export function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
             >
-              <div className="mb-2 text-4xl font-black text-white md:text-5xl">
+              <div className="mb-2 text-3xl font-black text-white sm:text-4xl md:text-5xl">
                 <Counter value={c.n} />
               </div>
               <div className="text-sm font-bold uppercase tracking-wider text-[#D90429]">{c.l}</div>

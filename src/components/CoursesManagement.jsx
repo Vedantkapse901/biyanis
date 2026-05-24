@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, X, Upload, Image as ImageIcon, Loader } from 'luci
 import { GlassCard } from './ui/GlassCard';
 import { uploadAdminFile, buildStoragePath } from '../lib/mediaStorage';
 import { buildB2DisplayUrl } from '../lib/b2MediaUrls';
+import { friendlyError, userMessages } from '../lib/userMessages';
 import { ResolvedImage } from './ResolvedImage';
 
 const ALL_SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
@@ -147,7 +148,7 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
       setFormData((prev) => ({ ...prev, image_url: storageRef }));
     } catch (err) {
       console.error('Course image upload failed:', err);
-      alert('Image upload failed: ' + err.message);
+      alert(friendlyError(err, userMessages.uploadFailed));
     } finally {
       setImageUploading(false);
     }
@@ -377,12 +378,12 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
                       {imageUploading ? (
                         <>
                           <Loader className="h-5 w-5 text-[#D90429] animate-spin" />
-                          <span className="text-sm text-slate-600">Uploading to B2…</span>
+                          <span className="text-sm text-slate-600">Uploading…</span>
                         </>
                       ) : (
                         <>
                           <Upload className="h-5 w-5 text-slate-400" />
-                          <span className="text-sm text-slate-600">Click to upload image (B2)</span>
+                          <span className="text-sm text-slate-600">Click to upload image</span>
                         </>
                       )}
                       <input
