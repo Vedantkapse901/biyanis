@@ -18,6 +18,8 @@ import { StudyMaterialsManagement } from './StudyMaterialsManagement'
 import { uploadToB2 } from '../lib/mediaStorage'
 import { createResultAdmin, deleteResultAdmin, updateResultAdmin } from '../lib/resultsAdminApi'
 import { supabase } from '../lib/supabase'
+import { sanitizeBranchPayload } from '../lib/branchHelpers'
+import { getSlideCtaText, getSlideCtaUrl, sanitizeSlidePayload } from '../lib/slideHelpers'
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -84,6 +86,7 @@ export function AdminPanel() {
   const [draftStudents, setDraftStudents] = useState([])
   const [draftStudyMaterials, setDraftStudyMaterials] = useState([])
   const [editingId, setEditingId] = useState(null)
+  const [slideEditDraft, setSlideEditDraft] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
 
   // Sync data with drafts
@@ -131,12 +134,33 @@ export function AdminPanel() {
   }
 
   // ==================== SLIDES ====================
-  const handleUpdateSlide = async (id, updates) => {
-    const result = await update('slides', id, updates)
+  const startEditSlide = (slide) => {
+    setEditingId(slide.id)
+    setSlideEditDraft({
+      ...slide,
+      cta_text: getSlideCtaText(slide),
+      cta_url: getSlideCtaUrl(slide),
+    })
+  }
+
+  const cancelEditSlide = () => {
+    setEditingId(null)
+    setSlideEditDraft(null)
+  }
+
+  const updateSlideDraft = (field, value) => {
+    setSlideEditDraft((prev) => (prev ? { ...prev, [field]: value } : prev))
+  }
+
+  const handleSaveSlide = async () => {
+    if (!slideEditDraft?.id) return
+    const result = await update('slides', slideEditDraft.id, sanitizeSlidePayload(slideEditDraft))
     if (result.success) {
-      setSaveStatus('Slide updated!')
-      setEditingId(null)
-      setTimeout(() => refetchSlides(), 500)
+      setSaveStatus('Slide saved!')
+      cancelEditSlide()
+      await refetchSlides()
+    } else {
+      setSaveStatus(`Failed: ${result.error || 'Could not save slide'}`)
     }
   }
 
@@ -221,38 +245,40 @@ export function AdminPanel() {
   }
 
   // ==================== BRANCHES ====================
-  const handleAddBranch = async () => {
-    const newBranch = {
-      name: 'New Branch',
-      phone: '+91',
-      address: 'Address',
-      map_link: '',
-      display_order: draftBranches.length,
-    }
-    const result = await insert('branches', newBranch)
+  const handleAddBranchRecord = async (data) => {
+    const result = await insert('branches', sanitizeBranchPayload(data))
     if (result.success) {
       setSaveStatus('Branch added!')
-      setTimeout(() => refetchBranches(), 500)
+      await refetchBranches()
+      return result.data?.[0] || null
     }
+    const message = result.error || 'Failed to add branch'
+    setSaveStatus(`Failed: ${message}`)
+    throw new Error(message)
   }
 
-  const handleUpdateBranch = async (id, updates) => {
-    const result = await update('branches', id, updates)
+  const handleUpdateBranchRecord = async (id, data) => {
+    const result = await update('branches', id, sanitizeBranchPayload(data))
     if (result.success) {
       setSaveStatus('Branch updated!')
-      setEditingId(null)
-      setTimeout(() => refetchBranches(), 500)
+      await refetchBranches()
+      return
     }
+    const message = result.error || 'Failed to update branch'
+    setSaveStatus(`Failed: ${message}`)
+    throw new Error(message)
   }
 
-  const handleDeleteBranch = async (id) => {
-    if (confirm('Delete this branch?')) {
-      const result = await remove('branches', id)
-      if (result.success) {
-        setSaveStatus('Branch deleted!')
-        setTimeout(() => refetchBranches(), 500)
-      }
+  const handleDeleteBranchRecord = async (id) => {
+    const result = await remove('branches', id)
+    if (result.success) {
+      setSaveStatus('Branch deleted!')
+      await refetchBranches()
+      return
     }
+    const message = result.error || 'Failed to delete branch'
+    setSaveStatus(`Failed: ${message}`)
+    throw new Error(message)
   }
 
 
@@ -398,9 +424,13 @@ export function AdminPanel() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mb-4 rounded-lg bg-green-100 px-4 py-3 text-green-800 font-semibold"
+              className={`mb-4 rounded-lg px-4 py-3 font-semibold ${
+                saveStatus.startsWith('Failed')
+                  ? 'bg-red-100 text-red-800'
+                  : 'bg-green-100 text-green-800'
+              }`}
             >
-              ✅ {saveStatus}
+              {saveStatus.startsWith('Failed') ? '❌' : '✅'} {saveStatus}
             </motion.div>
           )}
 
@@ -426,7 +456,10 @@ export function AdminPanel() {
                       <h3 className="font-bold text-slate-900">{slide.headline}</h3>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setEditingId(editingId === slide.id ? null : slide.id)}
+                          type="button"
+                          onClick={() =>
+                            editingId === slide.id ? cancelEditSlide() : startEditSlide(slide)
+                          }
                           className="text-blue-600 hover:text-blue-800"
                         >
                           {editingId === slide.id ? <X /> : <Edit2 className="h-5 w-5" />}
@@ -440,15 +473,13 @@ export function AdminPanel() {
                       </div>
                     </div>
 
-                    {editingId === slide.id ? (
+                    {editingId === slide.id && slideEditDraft ? (
                       <div className="space-y-3">
                         <div>
                           <label className="block text-sm font-semibold mb-1">Type</label>
                           <select
-                            value={slide.type}
-                            onChange={(e) =>
-                              handleUpdateSlide(slide.id, { ...slide, type: e.target.value })
-                            }
+                            value={slideEditDraft.type}
+                            onChange={(e) => updateSlideDraft('type', e.target.value)}
                             className="w-full rounded border border-slate-300 px-3 py-2"
                           >
                             <option value="image">Image</option>
@@ -460,10 +491,8 @@ export function AdminPanel() {
                           <label className="block text-sm font-semibold mb-1">Headline</label>
                           <input
                             type="text"
-                            value={slide.headline}
-                            onChange={(e) =>
-                              handleUpdateSlide(slide.id, { ...slide, headline: e.target.value })
-                            }
+                            value={slideEditDraft.headline || ''}
+                            onChange={(e) => updateSlideDraft('headline', e.target.value)}
                             className="w-full rounded border border-slate-300 px-3 py-2"
                           />
                         </div>
@@ -471,23 +500,30 @@ export function AdminPanel() {
                         <div>
                           <label className="block text-sm font-semibold mb-1">Subheadline</label>
                           <textarea
-                            value={slide.subheadline}
-                            onChange={(e) =>
-                              handleUpdateSlide(slide.id, { ...slide, subheadline: e.target.value })
-                            }
+                            value={slideEditDraft.subheadline || ''}
+                            onChange={(e) => updateSlideDraft('subheadline', e.target.value)}
                             className="w-full rounded border border-slate-300 px-3 py-2"
                             rows="2"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold mb-1">CTA Text</label>
+                          <label className="block text-sm font-semibold mb-1">CTA Button Text</label>
                           <input
                             type="text"
-                            value={slide.cta_text}
-                            onChange={(e) =>
-                              handleUpdateSlide(slide.id, { ...slide, cta_text: e.target.value })
-                            }
+                            value={slideEditDraft.cta_text || ''}
+                            onChange={(e) => updateSlideDraft('cta_text', e.target.value)}
+                            className="w-full rounded border border-slate-300 px-3 py-2"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold mb-1">CTA Button Link</label>
+                          <input
+                            type="text"
+                            value={slideEditDraft.cta_url || ''}
+                            onChange={(e) => updateSlideDraft('cta_url', e.target.value)}
+                            placeholder="e.g., /courses or https://..."
                             className="w-full rounded border border-slate-300 px-3 py-2"
                           />
                         </div>
@@ -496,22 +532,31 @@ export function AdminPanel() {
                           <label className="block text-sm font-semibold mb-2">Media URL</label>
                           <input
                             type="url"
-                            value={slide.url || ''}
-                            onChange={(e) =>
-                              handleUpdateSlide(slide.id, { ...slide, url: e.target.value })
-                            }
+                            value={slideEditDraft.url || ''}
+                            onChange={(e) => updateSlideDraft('url', e.target.value)}
                             placeholder="https://... (B2 public URL)"
                             className="w-full rounded border border-slate-300 px-3 py-2"
                           />
-                          <p className="text-xs text-slate-500 mt-1">Use SlideForm to upload new media to B2</p>
+                          <p className="text-xs text-slate-500 mt-1">Use Add Slide to upload new media to B2</p>
                         </div>
 
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="w-full rounded bg-green-600 px-4 py-2 text-white font-semibold hover:bg-green-700"
-                        >
-                          Done
-                        </button>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={cancelEditSlide}
+                            className="flex-1 rounded border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveSlide}
+                            disabled={mutationLoading}
+                            className="flex-1 rounded bg-green-600 px-4 py-2 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
+                          >
+                            Save Slide
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-slate-600 space-y-2">
@@ -522,8 +567,13 @@ export function AdminPanel() {
                           <strong>Subheadline:</strong> {slide.subheadline}
                         </p>
                         <p>
-                          <strong>CTA:</strong> {slide.cta_text}
+                          <strong>CTA:</strong> {getSlideCtaText(slide)}
                         </p>
+                        {getSlideCtaUrl(slide) && (
+                          <p>
+                            <strong>Link:</strong> {getSlideCtaUrl(slide)}
+                          </p>
+                        )}
                         {slide.url && (
                           <p>
                             <strong>Media:</strong> <a href={slide.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
@@ -583,9 +633,9 @@ export function AdminPanel() {
         {activeTab === 'branches' && (
           <BranchesManagement
             branches={draftBranches}
-            onAdd={(data) => insert('branches', data).then(() => refetchBranches())}
-            onUpdate={(id, data) => update('branches', id, data).then(() => refetchBranches())}
-            onDelete={(id) => remove('branches', id).then(() => refetchBranches())}
+            onAdd={handleAddBranchRecord}
+            onUpdate={handleUpdateBranchRecord}
+            onDelete={handleDeleteBranchRecord}
             isLoading={mutationLoading}
           />
         )}

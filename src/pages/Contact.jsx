@@ -6,6 +6,7 @@ import { PageTransition } from '../components/ui/PageTransition';
 import { GlassCard } from '../components/ui/GlassCard';
 import { AccentText } from '../components/ui/AccentText';
 import { ThemeButton } from '../components/ui/ThemeButton';
+import { getBranchMapLink } from '../lib/branchHelpers';
 
 export function Contact() {
   const { data } = useContext(AppContext);
@@ -119,7 +120,7 @@ export function Contact() {
                   <h4 className="mb-2 font-serif text-xl font-bold uppercase text-[#0A0F2C]">{miraRoadBranch.name}</h4>
                   <p className="mx-auto mb-6 max-w-sm text-sm leading-relaxed text-slate-600">{miraRoadBranch.address}</p>
                   <a
-                    href={miraRoadBranch.mapLink}
+                    href={getBranchMapLink(miraRoadBranch)}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 rounded-full border-2 border-[#0A0F2C] bg-transparent px-6 py-2 text-sm font-bold text-[#0A0F2C] transition-all hover:bg-[#0A0F2C] hover:text-white"
