@@ -16,14 +16,7 @@ export function StudentManagementPanel({ students = [], onAdd, onUpdate, onDelet
     password: '',
     course: 'JEE',
   })
-  const [error, setError] = useState('')
-
   const handleAddStudent = async () => {
-    if (!newStudent.name || !newStudent.email || !newStudent.username || !newStudent.password) {
-      setError('All fields are required!')
-      return
-    }
-
     const studentData = {
       name: newStudent.name,
       email: newStudent.email,
@@ -41,7 +34,6 @@ export function StudentManagementPanel({ students = [], onAdd, onUpdate, onDelet
       course: 'JEE',
     })
     setAddingNew(false)
-    setError('')
   }
 
   const startEdit = (student) => {
@@ -91,8 +83,6 @@ export function StudentManagementPanel({ students = [], onAdd, onUpdate, onDelet
       {addingNew && (
         <GlassCard className="p-6 border-2 border-[#D90429]">
           <h3 className="font-bold text-slate-900 mb-4">Create New Student Account</h3>
-          {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
-
           <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2">
             <input
               type="text"

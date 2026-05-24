@@ -33,42 +33,48 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
   }
 
   const handleAddMaterial = async () => {
-    if (!editingTitle.trim() || !editingFile) {
-      alert('Please enter a title and select a file')
-      return
-    }
-
     setUploadProgress(userMessages.uploading)
     setUploadLoading(true)
 
     try {
-      const storagePath = buildStoragePath(
-        `study-materials/${selectedCourse}/class-${selectedClass}`,
-        editingFile.name
-      )
+      let storageRef = ''
+      let viewUrl = ''
+      let downloadUrl = ''
 
-      const { storageRef, viewUrl, downloadUrl } = await uploadAdminFile({
-        storagePath,
-        file: editingFile,
-        contentType: editingFile.type || 'application/pdf',
-      })
+      if (editingFile) {
+        const storagePath = buildStoragePath(
+          `study-materials/${selectedCourse}/class-${selectedClass}`,
+          editingFile.name
+        )
 
-      if (!storageRef) {
-        alert(userMessages.uploadFailed)
-        setUploadProgress('')
-        setUploadLoading(false)
-        return
+        const uploadResult = await uploadAdminFile({
+          storagePath,
+          file: editingFile,
+          contentType: editingFile.type || 'application/pdf',
+        })
+
+        storageRef = uploadResult.storageRef || ''
+        viewUrl = uploadResult.viewUrl || ''
+        downloadUrl = uploadResult.downloadUrl || ''
+
+        if (!storageRef) {
+          alert(userMessages.uploadFailed)
+          setUploadProgress('')
+          setUploadLoading(false)
+          return
+        }
+
+        setLastPdfLinks({ viewUrl, downloadUrl, storageRef })
       }
 
-      setLastPdfLinks({ viewUrl, downloadUrl, storageRef })
       setUploadProgress(userMessages.savingRecord)
 
       const newMaterial = {
-        title: editingTitle,
+        title: editingTitle.trim() || 'Untitled Material',
         course: selectedCourse,
         class_level: selectedClass,
         pdf_url: storageRef,
-        file_size: editingFile.size,
+        file_size: editingFile?.size || 0,
         display_order: filteredMaterials.length,
       }
 
@@ -228,7 +234,7 @@ export function StudyMaterialsManagement({ materials, onAdd, onDelete, isLoading
               <div className="flex gap-2">
                 <button
                   onClick={handleAddMaterial}
-                  disabled={isLoading || uploadLoading || !editingTitle || !editingFile}
+                  disabled={isLoading || uploadLoading}
                   className="flex-1 rounded-lg bg-[#D90429] px-4 py-2 font-semibold text-white hover:bg-[#b00320] disabled:opacity-50 transition-colors"
                 >
                   {uploadLoading ? 'Uploading…' : 'Upload PDF'}

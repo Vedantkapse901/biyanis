@@ -290,16 +290,18 @@ export function AdminPanel() {
       setAddingSlide(true)
       setSaveStatus(userMessages.uploading)
 
-      const b2Result = await uploadToB2(formData.file, 'slides/')
-
-      if (!b2Result.storageRef && !b2Result.publicUrl) {
-        throw new Error(userMessages.uploadFailed)
+      let slideUrl = ''
+      if (formData.file) {
+        const b2Result = await uploadToB2(formData.file, 'slides/')
+        if (!b2Result.storageRef && !b2Result.publicUrl) {
+          throw new Error(userMessages.uploadFailed)
+        }
+        slideUrl = b2Result.storageRef || b2Result.publicUrl
       }
 
-      // Store B2 ref; frontend resolves to /api/download proxy URL
       const newSlide = {
         type: formData.type,
-        url: b2Result.storageRef || b2Result.publicUrl,
+        url: slideUrl,
         cta: formData.cta,
         cta_url: formData.ctaUrl,
         display_order: draftSlides.length,

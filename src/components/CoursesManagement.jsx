@@ -155,21 +155,6 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
   };
 
   const handleSave = async () => {
-    if (!formData.title.trim()) {
-      alert('Course title is required');
-      return;
-    }
-
-    if (!formData.exam_type || formData.exam_type.length === 0) {
-      alert('Please select at least one exam type');
-      return;
-    }
-
-    if (!formData.subject || formData.subject.length === 0) {
-      alert('Please select at least one subject');
-      return;
-    }
-
     // Convert display_position to numeric order
     const positionMap = {
       'Featured (First)': 0,
@@ -181,10 +166,12 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
 
     const payload = {
       ...formData,
-      exam_type: formData.exam_type,
+      title: (formData.title || '').trim() || 'Untitled Course',
+      exam_type: formData.exam_type || [],
+      subject: formData.subject || [],
       display_order: positionMap[formData.display_position] || 99,
-      what_you_learn: formData.what_you_learn.filter(item => item.trim()),
-      requirements: formData.requirements.filter(item => item.trim()),
+      what_you_learn: (formData.what_you_learn || []).filter(item => item.trim()),
+      requirements: (formData.requirements || []).filter(item => item.trim()),
     };
 
     if (editingId) {
@@ -250,7 +237,7 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
               <div className="space-y-4">
                 {/* Course Title */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Course Title *</label>
+                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Course Title</label>
                   <input
                     type="text"
                     value={formData.title}
@@ -262,7 +249,7 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
 
                 {/* Exam Types (Multiple Selection) */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Exam Types * (Select Multiple)</label>
+                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Exam Types (Select Multiple)</label>
                   <div className="grid grid-cols-2 gap-3">
                     {EXAM_TYPES.map((exam) => (
                       <label key={exam} className="flex items-center gap-2 cursor-pointer">
@@ -280,7 +267,7 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
 
                 {/* Subject (Multiple Selection Checkboxes) */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Subjects * (Select Multiple)</label>
+                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Subjects (Select Multiple)</label>
                   <div className="grid grid-cols-2 gap-3">
                     {availableSubjects.map((subject) => (
                       <label key={subject} className="flex items-center gap-2 cursor-pointer">
@@ -310,7 +297,7 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
 
                 {/* Duration */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Duration *</label>
+                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Duration</label>
                   <select
                     value={formData.duration}
                     onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
@@ -341,7 +328,7 @@ export function CoursesManagement({ courses = [], onAdd, onUpdate, onDelete, loa
               <div className="space-y-4">
                 {/* Price */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Price (₹) *</label>
+                  <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">Price (₹)</label>
                   <input
                     type="number"
                     value={formData.price}

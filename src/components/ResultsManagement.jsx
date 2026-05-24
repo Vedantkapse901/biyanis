@@ -137,19 +137,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
 
 
   const handleSave = async () => {
-    // Only name and photo are required
-    if (!formData.name.trim()) {
-      alert('Student name is required');
-      return;
-    }
-
     const photo = formData.photo || formData.image_url || '';
-    if (!photo) {
-      alert('Please upload a photo');
-      return;
-    }
-
-    // All other fields (college, rank, exam) are optional
 
     // Check Hall of Fame limit (max 10)
     if (formData.section === 'hallOfFame' && !editingId && hallOfFameResults.length >= 10) {
@@ -161,7 +149,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
     const { rank: _rank, year: _year, id: _id, created_at: _ca, updated_at: _ua, image_url: _img, score: _score, ...rest } =
       formData;
     const payload = {
-      name: rest.name?.trim(),
+      name: rest.name?.trim() || 'Student',
       achievement: rankText,
       rank: rankText,
       college: rest.college?.trim() || null,
@@ -271,7 +259,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
                 {/* Name */}
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">
-                    Student Name *
+                    Student Name
                   </label>
                   <input
                     type="text"
@@ -316,7 +304,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
                 {/* Section */}
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">
-                    Section *
+                    Section
                   </label>
                   <select
                     value={formData.section}
@@ -348,7 +336,7 @@ export function ResultsManagement({ results = [], onAdd, onUpdate, onDelete, loa
                 {/* Photo Upload */}
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">
-                    Student Photo (Circular) *
+                    Student Photo (Circular)
                   </label>
                   <p className="text-xs text-slate-500 mb-2">
                     Upload a clear photo — it will appear on the Hall of Fame page.

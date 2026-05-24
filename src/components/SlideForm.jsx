@@ -41,11 +41,6 @@ export function SlideForm({ onClose, onSubmit, isLoading }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!file) {
-      setError('Please select a file');
-      return;
-    }
-
     onSubmit({
       type,
       file,
@@ -180,7 +175,7 @@ export function SlideForm({ onClose, onSubmit, isLoading }) {
               </button>
               <button
                 type="submit"
-                disabled={!file || isLoading}
+                disabled={isLoading}
                 className="flex-1 rounded-lg bg-[#D90429] px-4 py-2 font-bold text-white transition-colors disabled:opacity-50 hover:bg-[#b00320]"
               >
                 {isLoading ? '⏳ Saving...' : '✅ Save Slide'}

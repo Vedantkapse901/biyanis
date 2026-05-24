@@ -98,19 +98,10 @@ export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loadi
   };
 
   const handleSave = async () => {
-    if (!formData.title.trim()) {
-      alert('Title is required');
-      return;
-    }
-
-    if (!formData.image_url && !formData.drive_link) {
-      alert('Please upload a photo or add a Google Drive link');
-      return;
-    }
-
     const payload = {
       ...formData,
-      image_url: formData.image_url || formData.drive_link,
+      title: (formData.title || '').trim() || 'Gallery item',
+      image_url: formData.image_url || formData.drive_link || '',
     };
 
     if (editingId) {
@@ -173,7 +164,7 @@ export function GalleryManagement({ items = [], onAdd, onUpdate, onDelete, loadi
                 {/* Title */}
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[#0A0F2C]">
-                    Photo Title / Event Name *
+                    Photo Title / Event Name
                   </label>
                   <input
                     type="text"
